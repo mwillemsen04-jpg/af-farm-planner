@@ -27,6 +27,7 @@ header{grid-area:top;display:flex;align-items:center;gap:14px;padding:10px 16px;
 #stage img{display:block;max-width:none;user-select:none;-webkit-user-drag:none}
 #ov{position:absolute;left:0;top:0;overflow:visible}
 .am{cursor:pointer}
+.am.out{opacity:.35}
 .am .base{fill:#0d1117;fill-opacity:.82;stroke-width:3}
 .am:hover .base{fill:#1e293b}
 .am.sel .base{stroke:#fff!important;stroke-width:4}
@@ -572,9 +573,11 @@ section>h2:first-child,section>.row:first-child>h2{cursor:default}
       <label>Show units of<select id="showOnly"></select></label>
       <p class="muted" id="armCount"></p>
       <label class="ck"><input type="checkbox" id="aiRange"> Show range of AI artillery, ships and planes</label>
-      <div class="ph" style="margin-top:4px">Show or hide countries</div>
+      <div class="ph" style="margin-top:4px">Show or hide countries (only for you)</div>
       <div class="row"><button class="btn sm" id="allOn">All on</button><button class="btn sm" id="allOff">All off</button></div>
       <div class="nats" id="nats"></div>
+      <p class="muted" style="margin:6px 0 0">What you show or hide here, and the map options above, are only for you: teammates keep their own view. Faded armies do not take part in the fights of this farm.</p>
+      <div class="row"><button class="btn sm" id="viewToSim" title="The armies you show now are the ones that fight in this farm, for everyone">Use my view for the fights (everyone)</button></div>
     </section>
 
     <section id="asmSec" data-tab="setup">
@@ -1113,6 +1116,16 @@ document.addEventListener('keydown',e=>{ if(!routing||e.target.closest('input,se
 /* ---------- AI armies ---------- */
 const NS='http://www.w3.org/2000/svg';
 let hidden=new Set(store.get('hidden',[])); let selArmy=null;
+/* personal view: which armies you see and how the map looks. Kept per person (this browser) and per farm, never shared.
+   'hidden' above stays the farm's own list: the AI armies that do not take part in the fights. */
+const VKEYS=['greyRest','terOn','armOn','aiRange']; let VHID=new Set(); let FDEF={};
+const pvAll=()=>store.get('pview',{}); const pvGet=()=>pvAll()[S.farmId||'_']||{};
+function pvSet(k,v){ const a=pvAll(), id=S.farmId||'_'; a[id]=Object.assign(a[id]||{},{[k]:v}); store.set('pview',a); }
+function isVHid(o){ return VHID.has(+o); }
+function pvOverlay(boot){ const id=S.farmId||'_'; const st=boot?store.get('fdef_'+id,null):null; FDEF={}; VKEYS.forEach(k=>{ FDEF[k]=st?st[k]:S[k]; }); if(!st) store.set('fdef_'+id,FDEF);
+  const pv=pvGet(); VKEYS.forEach(k=>{ if(k in pv) S[k]=pv[k]; }); }
+function snapS(){ const o=Object.assign({},S); VKEYS.forEach(k=>{ if(FDEF[k]===undefined) delete o[k]; else o[k]=FDEF[k]; }); return o; }
+pvOverlay(true);
 /* hidden country: switched off by hand, or (with 'only the two teams') every country outside your team and the enemy team */
 function isHid(o){ if(hidden.has(o)||hidden.has(String(o))||hidden.has(+o)) return true; if(!S.onlyTeams) return false; const k=String(o); const me=(S.teamMe||[]).map(String), en=(S.teamEn||[]).map(String); if(!me.filter(Boolean).length&&!en.filter(Boolean).length) return false; return !me.includes(k)&&!en.includes(k); }
 const gA=$('gArm');
@@ -1130,13 +1143,18 @@ const armEls=A.map((a,i)=>{ const g=document.createElementNS(NS,'g'); const n=a.
 function nearestNode(x,y,max){ let b=-1,bd=max*max; V.forEach((p,i)=>{const d=(p.p[0]-x)**2+(p.p[1]-y)**2; if(d<bd){bd=d;b=i;}}); return b; }
 function nearestProv(x,y,max){ let b=-1,bd=max*max; P.forEach((p,i)=>{const d=(p.p[0]-x)**2+(p.p[1]-y)**2; if(d<bd){bd=d;b=i;}}); return b; }
 const armProv=A.map(a=>nearestProv(a.p[0],a.p[1],60));
-function applyHidden(){ armEls.forEach((el,i)=>{el.style.display=isHid(A[i].o)?'none':'';}); const vis=A.filter(a=>!isHid(a.o)); const u=vis.reduce((s,a)=>s+a.u.reduce((t,x)=>t+x[1],0),0);
+function applyHidden(){ armEls.forEach((el,i)=>{ el.style.display=isVHid(A[i].o)?'none':''; el.classList.toggle('out',isHid(A[i].o)); }); const vis=A.filter(a=>!isVHid(a.o)); const u=vis.reduce((s,a)=>s+a.u.reduce((t,x)=>t+x[1],0),0);
   $('armCount').textContent=`${vis.length} armies with ${u} units visible (of ${A.length}). Click an army for its units.`; store.set('hidden',[...hidden]); try{ lastSig=''; MVER++; drawMovers(); }catch(e){} }
 const cnt={}; A.forEach(a=>cnt[a.o]=(cnt[a.o]||0)+1);
-$('nats').innerHTML=natList.filter(([k])=>cnt[k]).map(([k,v])=>`<label><input type="checkbox" data-o="${k}" ${isHid(+k)?'':'checked'}><span class="chip" style="background:${v.c}"></span>${v.n}<span class="c">${cnt[k]}</span></label>`).join('');
-$('nats').addEventListener('change',e=>{const o=+e.target.dataset.o; e.target.checked?hidden.delete(o):hidden.add(o); applyHidden();});
-$('allOn').onclick=()=>{hidden.clear(); document.querySelectorAll('#nats input').forEach(i=>i.checked=true); applyHidden();};
-$('allOff').onclick=()=>{Object.keys(cnt).forEach(k=>hidden.add(+k)); document.querySelectorAll('#nats input').forEach(i=>i.checked=false); applyHidden();};
+/* your view at the start: your own whole team (the farm's list when no team is set); after that whatever you pick */
+function pvLoadView(){ const pv=pvGet(); if(Array.isArray(pv.vh)){ VHID=new Set(pv.vh.map(Number)); return; } VHID=new Set(); const me=(S.teamMe||[]).filter(Boolean).map(String);
+  if(me.length) Object.keys(cnt).forEach(k=>{ if(!me.includes(String(k))) VHID.add(+k); }); else hidden.forEach(o=>VHID.add(+o)); }
+pvLoadView();
+$('nats').innerHTML=natList.filter(([k])=>cnt[k]).map(([k,v])=>`<label><input type="checkbox" data-o="${k}" ${isVHid(+k)?'':'checked'}><span class="chip" style="background:${v.c}"></span>${v.n}<span class="c">${cnt[k]}</span></label>`).join('');
+$('nats').addEventListener('change',e=>{const o=+e.target.dataset.o; e.target.checked?VHID.delete(o):VHID.add(o); pvSet('vh',[...VHID]); applyHidden(); drawRanges();});
+$('allOn').onclick=()=>{VHID.clear(); pvSet('vh',[]); document.querySelectorAll('#nats input').forEach(i=>i.checked=true); applyHidden(); drawRanges();};
+$('allOff').onclick=()=>{Object.keys(cnt).forEach(k=>VHID.add(+k)); pvSet('vh',[...VHID]); document.querySelectorAll('#nats input').forEach(i=>i.checked=false); applyHidden(); drawRanges();};
+$('viewToSim').onclick=()=>{ hidden.clear(); VHID.forEach(o=>hidden.add(+o)); try{ DJC.clear(); }catch(e){} save(); applyHidden(); renderRoutes(); };
 applyHidden();
 // teams: 5 own and 5 enemy countries (stored per viewer)
 S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','',''];
@@ -1163,9 +1181,9 @@ const NVP={}; P.forEach(p=>{ NVP[p.o]=(NVP[p.o]||0)+(p.vp||0); });
 const bigNats=natList.filter(([k])=>NVP[k]>=50);
 function teamSelects(box,key){ const opt=bigNats.map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
   $(box).innerHTML=S[key].map((v,j)=>`<select data-j="${j}" aria-label="Country ${j+1}"><option value="">—</option>${opt}</select>`).join('');
-  $(box).querySelectorAll('select').forEach(sel=>{ sel.value=S[key][+sel.dataset.j]||''; sel.onchange=()=>{ S[key][+sel.dataset.j]=sel.value; save(); applyTeams(); renderRoutes(); }; }); }
+  $(box).querySelectorAll('select').forEach(sel=>{ sel.value=S[key][+sel.dataset.j]||''; sel.onchange=()=>{ S[key][+sel.dataset.j]=sel.value; save(); if(!Array.isArray(pvGet().vh)){ pvLoadView(); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o)); applyHidden(); } applyTeams(); renderRoutes(); }; }); }
 teamSelects('tMe','teamMe'); teamSelects('tEn','teamEn'); setTimeout(applyTeams,0);
-$('greyRest').checked=!!S.greyRest; $('greyRest').addEventListener('change',e=>{ S.greyRest=e.target.checked; save(); applyTeams(); });
+$('greyRest').checked=!!S.greyRest; $('greyRest').addEventListener('change',e=>{ S.greyRest=e.target.checked; pvSet('greyRest',S.greyRest); store.set('settings',S); applyTeams(); });
 $('onlyTeams').checked=!!S.onlyTeams; $('onlyTeams').addEventListener('change',e=>{ S.onlyTeams=e.target.checked; DJC.clear(); save(); try{ applyTeams(); }catch(x){} renderRoutes(); });
 // quick filter: everyone, one team, or one country (sets the same show/hide list as the checkboxes)
 function fillShowOnly(){ const cur=$('showOnly').value||'all';
@@ -1175,11 +1193,11 @@ fillShowOnly();
 function setTer(on){ S.terOn=on; $('terOn').checked=on; $('tTer').setAttribute('aria-pressed',on); $('ov').classList.toggle('noter',!on); }
 function setArm(on){ S.armOn=on; $('tArm').setAttribute('aria-pressed',on); $('ov').classList.toggle('noarm',!on); setTimeout(resize,0); }
 setTer(S.terOn!==false); setArm(S.armOn!==false);
-$('terOn').addEventListener('change',e=>{ setTer(e.target.checked); save(); });
-$('tTer').onclick=()=>{ setTer(S.terOn===false); save(); };
-$('tArm').onclick=()=>{ setArm(S.armOn===false); save(); };
+$('terOn').addEventListener('change',e=>{ setTer(e.target.checked); pvSet('terOn',S.terOn); store.set('settings',S); });
+$('tTer').onclick=()=>{ setTer(S.terOn===false); pvSet('terOn',S.terOn); store.set('settings',S); };
+$('tArm').onclick=()=>{ setArm(S.armOn===false); pvSet('armOn',S.armOn); store.set('settings',S); };
 $('showOnly').addEventListener('change',e=>{ const v=e.target.value; const keep=o=>v==='all'||(v==='team:me'&&teamOf(o)==='me')||(v==='team:en'&&teamOf(o)==='en')||(v==='team:both'&&teamOf(o)!=='')||String(o)===v;
-  hidden.clear(); Object.keys(cnt).forEach(k=>{ if(!keep(k)) hidden.add(+k); }); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isHid(+i.dataset.o)); applyHidden(); drawRanges(); });
+  VHID.clear(); Object.keys(cnt).forEach(k=>{ if(!keep(k)) VHID.add(+k); }); pvSet('vh',[...VHID]); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o)); applyHidden(); drawRanges(); });
 
 function armySpeedTxt(a){ let m=Infinity; for(const [id] of a.u){ const u=UT[id]; if(u&&u.sp&&u.sp['0']!=null) m=Math.min(m,u.sp['0']*KMH); } return isFinite(m)?Math.round(m)+' km/h (slowest unit)':'– (air force)'; }
 function planFromArmy(i){ const a=A[i]; const pi=armProv[i]; if(pi<0) return;
@@ -1443,7 +1461,7 @@ function rangeCircle(g,p,rg,cls,col,label){ const c=document.createElementNS(NS,
   if(label){ const t=document.createElementNS(NS,'text'); t.setAttribute('x',p[0]); t.setAttribute('y',p[1]-rg/PX2UNIT-5); t.setAttribute('text-anchor','middle'); t.setAttribute('class','rngt'); t.setAttribute('fill',col||'#fca5a5'); t.textContent=label; g.appendChild(t); } }
 function rangesOf(ids){ const m=new Map(); ids.forEach(id=>{ const u=UT[id]; const rg=unitRange(u); if(rg&&!(m.has(rg))) m.set(rg,u.n); else if(rg&&!m.get(rg).split(' / ').includes(u.n)) m.set(rg,m.get(rg)+' / '+u.n); }); return [...m.entries()].sort((a,b)=>b[0]-a[0]); }
 function drawRanges(){ const g=$('gRange'); if(!g) return; g.innerHTML='';
-  if(S.aiRange) A.forEach((a,i)=>{ if(isHid(a.o)) return; const rg=Math.max(0,...a.u.map(([id])=>unitRange(UT[id]))); if(rg) rangeCircle(g,a.p,rg,'rng ai',null,''); });
+  if(S.aiRange) A.forEach((a,i)=>{ if(isHid(a.o)||isVHid(a.o)) return; const rg=Math.max(0,...a.u.map(([id])=>unitRange(UT[id]))); if(rg) rangeCircle(g,a.p,rg,'rng ai',null,''); });
   if(selArmy!=null){ const a=A[selArmy]; rangesOf(a.u.map(x=>x[0])).forEach(([rg,n])=>rangeCircle(g,a.p,rg,'rng ai',null,`${n} · ${rg} km`)); }
   { const r=active(); if(r&&hasT(r)) r.targets.forEach(T=>{ if(!A[T.i]||T.at>=r.wps.length) return; const q=A[T.i].p, sp=wpPos(r.wps[T.at]), ln=document.createElementNS(NS,'line'); ln.setAttribute('x1',sp[0]); ln.setAttribute('y1',sp[1]); ln.setAttribute('x2',q[0]); ln.setAttribute('y2',q[1]); ln.setAttribute('class','shotl'); g.appendChild(ln); }); }
   const r=active(); if(r&&r.wps.length){ const ids=r.stack?r.stack.map(x=>x[0]):(curUnit(r)?[curUnit(r).id]:[]); const mis=!r.stack&&MISSILE.has((curUnit(r)||{}).n); const p=mis?V[r.wps[0]].p:basePos(r);
@@ -1476,10 +1494,10 @@ function drawMovers(){ const g=$('gMov'); g.innerHTML='';
   /* a unit still in the factory: its route line only shows once it is out */
   document.querySelectorAll('#gRoutes [data-born],#gWp [data-born],#gRoutes [data-after]').forEach(e=>{ const hide=(e.dataset.born!=null&&TNOW<+e.dataset.born-1e-9)||(e.dataset.after!=null&&TNOW<+e.dataset.after-1e-9); e.style.display=hide?'none':''; });
   document.querySelectorAll('#gWp [data-tp]').forEach(e=>{ if(TNOW>+e.dataset.tp+1e-6) e.style.display='none'; else if(e.dataset.born==null||TNOW>=+e.dataset.born-1e-9) e.style.display=''; });   /* route points behind the stack (and its start once it has left) disappear */
-  document.querySelectorAll('#gRoutes [data-me],#gWp [data-me]').forEach(e=>{ if(isHid(+e.dataset.me)) e.style.display='none'; });
+  document.querySelectorAll('#gRoutes [data-me],#gWp [data-me]').forEach(e=>{ if(isHid(+e.dataset.me)||isVHid(+e.dataset.me)) e.style.display='none'; });
   const moving=new Set(); MOVPOS=[];
   const k=iconK();
-  for(const r of routes){ if(!r.wps.length) continue; if(isHid(r.me)){ if(r.army!=null) moving.add(r.army); continue; } if(effBorn(r)!=null&&TNOW<effBorn(r)-1e-9) continue; const tr=TRACKS[r.id]; let st=tr?trackAt(tr,TNOW):null; try{ trimRouteLine(r,tr,st); }catch(e){}
+  for(const r of routes){ if(!r.wps.length) continue; if(isHid(r.me)||isVHid(r.me)){ if(r.army!=null) moving.add(r.army); continue; } if(effBorn(r)!=null&&TNOW<effBorn(r)-1e-9) continue; const tr=TRACKS[r.id]; let st=tr?trackAt(tr,TNOW):null; try{ trimRouteLine(r,tr,st); }catch(e){}
     if(!st){ const w=r.wps[0]; const sp=(typeof w==='number'&&V[w].land&&routeSea(r)&&shipStart(w))?shipStart(w).q:V[w].p; st={p:sp,s:'',idle:true}; }   // not started yet (or only a start point): the stack waits at its start
     if(r.army!=null) moving.add(r.army); if(st.gone) continue;
     if(st.s==='P'&&st.seg&&st.seg.ctr){ const q=st.seg.ctr, rad=patRadius(curUnit(r))/PX2UNIT*0.75, a=(TNOW*60/(S.patMin??15))*2*Math.PI; st={...st,p:[q[0]+rad*Math.cos(a),q[1]+rad*Math.sin(a)]}; } // one lap per patrol attack
@@ -1498,8 +1516,8 @@ function drawMovers(){ const g=$('gMov'); g.innerHTML='';
         const fg=document.createElementNS(NS,'rect'); fg.setAttribute('x',-15); fg.setAttribute('y',18); fg.setAttribute('width',(30*f).toFixed(1)); fg.setAttribute('height',5); fg.setAttribute('rx',2); fg.setAttribute('fill',f>0.6?'#4ade80':f>0.3?'#facc15':'#f87171'); grp.appendChild(fg);
         const tt=document.createElementNS(NS,'title'); tt.textContent=`HP ${H.hp.toFixed(1)} / ${H.max.toFixed(1)}`; grp.appendChild(tt); } }
     g.appendChild(grp); }
-  armEls.forEach((el,i)=>{ const n=aiAlive(i,TNOW,null); el.style.display=(isHid(A[i].o)||moving.has(i)||n<=0)?'none':''; armCount(el,i,n); armHp(el,i); });
-  for(const key in RANGED){ const i=+key, X=RANGED[key], R=X.R, T0=X.sh+R.t0; if(isHid(A[i].o)||TNOW<T0-1e-9) continue;
+  armEls.forEach((el,i)=>{ const n=aiAlive(i,TNOW,null); el.style.display=(isVHid(A[i].o)||moving.has(i)||n<=0)?'none':''; armCount(el,i,n); armHp(el,i); });
+  for(const key in RANGED){ const i=+key, X=RANGED[key], R=X.R, T0=X.sh+R.t0; if(isHid(A[i].o)||isVHid(A[i].o)||TNOW<T0-1e-9) continue;
     let row=null; for(const w of R.rows){ if(X.sh+w.t<=TNOW+1e-9) row=w; else break; } if(!row) continue;
     // pulled units on their way to the shooter (a convoy once they are at sea); gone when killed
     let pN=row.pN||0; const arr=R.arrive!=null?X.sh+R.arrive:null; if(!pN||!R.trip||!R.trip.path||arr==null) continue;
@@ -1664,7 +1682,7 @@ function click(e,r){ const [x,y]=world(e,r);
   if(PLACING){ const pi=nearestNode(x,y,70); if(pi>=0) placeAt(pi); return; }
   if(DESTPICK){ const pv=provinceAt(x,y); const pj=pv>=0?pv:nearestNode(x,y,90); if(pj>=0){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); } return; }
   if(PRODPICK){ const pi=provinceAt(x,y); const pj=pi>=0?pi:nearestNode(x,y,70); if(pj>=0&&V[pj].land){ S.prodPi=pj; PRODPICK=false; $('prodPick').classList.remove('on'); $('hint').hidden=true; save(); renderProd(); sideScroll($('prodSec')); } return; }
-  if(SHOOTPICK&&r0&&r0.id===SHOOTPICK){ let best=-1, bd=40/s; A.forEach((a,i)=>{ if(isHid(a.o)||friendly(a.o,r0.me)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){ bd=d; best=i; } }); if(best>=0){ if(moveIntoRange(r0,best)!==false){ r0.targets=r0.targets||[]; r0.targets.push({i:best,at:r0.wps.length-1,all:false}); delete r0.tsel; } SHOOTPICK=null; patHint(); save(); renderRoutes(); } return; }
+  if(SHOOTPICK&&r0&&r0.id===SHOOTPICK){ let best=-1, bd=40/s; A.forEach((a,i)=>{ if(isHid(a.o)||isVHid(a.o)||friendly(a.o,r0.me)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){ bd=d; best=i; } }); if(best>=0){ if(moveIntoRange(r0,best)!==false){ r0.targets=r0.targets||[]; r0.targets.push({i:best,at:r0.wps.length-1,all:false}); delete r0.tsel; } SHOOTPICK=null; patHint(); save(); renderRoutes(); } return; }
   if(FREEPICK&&r0&&r0.id===FREEPICK){ const fe=snapToLine(x,y,40/s); if(fe){ r0.wps.push(fe); save(); renderRoutes(); } return; }
   if(CARPICK&&r0&&r0.id===CARPICK){ let best=null, bd=40/s; MOVPOS.forEach(m=>{ if(isCarrier(m.r)){ const d=Math.hypot(m.p[0]-x,m.p[1]-y); if(d<bd){ bd=d; best=m.r; } } }); if(best){ r0.carrier=best.id; CARPICK=null; patHint(); save(); renderRoutes(); } return; }
   if(PATPICK&&r0&&r0.id===PATPICK){ if(PATNEXT&&r0.patP){ r0.patNext=r0.patNext||[]; r0.patNext.push({p:clampPatrol(r0,[x,y],r0.patNext.length+1),stay:60}); FOCUSSTAY=r0.patNext.length; } else { r0.patP=clampPatrol(r0,[x,y],0); (r0.patNext||[]).forEach((n,j)=>n.p=clampPatrol(r0,n.p,j+1)); } PATPICK=null; PATNEXT=false; patHint(); save(); renderRoutes(); return; }
@@ -1676,12 +1694,12 @@ function click(e,r){ const [x,y]=world(e,r);
   const k=iconK(), rad=17*k;
   // armies that already have a route are drawn as that route's stack: clicking them selects the route, never a second copy
   const routed=new Set(routes.filter(q=>q.army!=null).map(q=>q.army));
-  if(S.armOn!==false) A.forEach((a,i)=>{ if(isHid(a.o)||routed.has(i)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){bd=d;best=i;} });
+  if(S.armOn!==false) A.forEach((a,i)=>{ if(isVHid(a.o)||routed.has(i)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){bd=d;best=i;} });
   const armyHit=best>=0&&(bd<=rad||(hit&&!hit.closest('#gMov')));
   if(!armyHit){ if(mine.length===1) return selectRoute(mine[0].r); if(mine.length>1) return showPicker([],mine.map(m=>m.r)); const wasProv=PRODBOX==='pop'&&!$('pop').hidden?S.prodPi:null; closePop(); if(act!=null){ act=null; save(); renderRoutes(); }
     const pv=provinceAt(x,y); if(pv>=0&&pv!==wasProv) openProvPop(pv); return; }
   // several armies under the click (icons on top of each other): let the player pick one
-  const under=A.map((a,i)=>i).filter(i=>S.armOn!==false&&!isHid(A[i].o)&&!routed.has(i)&&Math.hypot(A[i].p[0]-x,A[i].p[1]-y)<=Math.max(rad,bd)+rad*0.9)
+  const under=A.map((a,i)=>i).filter(i=>S.armOn!==false&&!isVHid(A[i].o)&&!routed.has(i)&&Math.hypot(A[i].p[0]-x,A[i].p[1]-y)<=Math.max(rad,bd)+rad*0.9)
     .sort((i,j)=>Math.hypot(A[i].p[0]-x,A[i].p[1]-y)-Math.hypot(A[j].p[0]-x,A[j].p[1]-y));
   if(under.length>1||mine.length) showPicker(under,mine.map(m=>m.r)); else showArmy(best); }
 function selectRoute(r){ closePop(); act=r.id; syncControls(r); save(); renderRoutes(); }
@@ -1709,7 +1727,7 @@ map.addEventListener('pointermove',e=>{ if(DRAG) return; const rr=map.getBoundin
   const bump=f=>function(){ MVER++; return f.apply(this,arguments); }; renderRoutes=bump(renderRoutes); applyHidden=bump(applyHidden); }
 $('day1Morale').checked=S.day1Morale!==false; $('day1Morale').addEventListener('change',e=>{ S.day1Morale=e.target.checked; save(); prodPlace(); renderRoutes(); if(S.prodPi!=null) renderProd(); window.dispatchEvent(new Event('afcalc-tick')); });
 $('peace').checked=S.peace!==false; $('peace').addEventListener('change',e=>{ S.peace=e.target.checked; save(); renderRoutes(); });
-$('aiRange').checked=!!S.aiRange; $('aiRange').addEventListener('change',e=>{ S.aiRange=e.target.checked; save(); drawRanges(); });
+$('aiRange').checked=!!S.aiRange; $('aiRange').addEventListener('change',e=>{ S.aiRange=e.target.checked; pvSet('aiRange',S.aiRange); store.set('settings',S); drawRanges(); });
 // the old example route (id 1) is gone for good
 if(routes.some(r=>r.id===1&&(r.name==='Example'||r.name==='Voorbeeld'))){ routes=routes.filter(r=>!(r.id===1&&(r.name==='Example'||r.name==='Voorbeeld'))); if(act===1) act=null; save(); }
 if(routing) setRouting(true);
@@ -2049,7 +2067,7 @@ window.addEventListener('load',()=>{ let v=null; try{ v=sessionStorage.getItem('
 
 /* ---------- farms: whole plans saved automatically (your account via db, this browser as backup) ---------- */
 var FDB=null, FUID=null, FT=null, FLOCK=false, FREM={};
-function farmSnap(){ return {v:1,routes,act,hidden:[...hidden],S:Object.assign({},S)}; }
+function farmSnap(){ return {v:1,routes,act,hidden:[...hidden],S:snapS()}; }
 function farmLocal(){ return store.get('farms',{}); }
 function farmStatus(t){ $('farmSt').textContent=t; }
 function farmAll(){ const m={}; const L=farmLocal(); for(const k in L) m[k]={name:L[k].name,saved:L[k].saved}; for(const k in FREM) if(!m[k]||FREM[k].saved>m[k].saved) m[k]={name:FREM[k].name,saved:FREM[k].saved}; return m; }
@@ -2074,9 +2092,9 @@ async function farmBody(id){ let b=farmLocal()[id]; if(FDB&&FUID&&FREM[id]&&(!b|
 function farmApply(id,name,f){ FLOCK=true; clearTimeout(FT);
   if(routing) setRouting(false); if(PLACING) setPlacing(false); PATPICK=null; PATNEXT=false; CARPICK=null; FREEPICK=null; SHOOTPICK=null; closePop();
   const keep=Object.keys(S); for(const k of keep) if(!(k in (f.S||{}))&&!['cal','patv','corrv'].includes(k)) delete S[k];
-  Object.assign(S,f.S||{}); S.farmId=id; S.farmName=name; S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','',''];
+  Object.assign(S,f.S||{}); S.farmId=id; S.farmName=name; S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','','']; pvOverlay(false);
   routes=(f.routes||[]).map(r=>{ if(r.sh==null) r.sh=0; return r; }); act=f.act??null;
-  hidden.clear(); (f.hidden||[]).forEach(o=>hidden.add(o)); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isHid(+i.dataset.o));
+  hidden.clear(); (f.hidden||[]).forEach(o=>hidden.add(o)); pvLoadView(); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o));
   syncControls(S); setStartInputs(S.sh??0); $('gstart').value=S.gstart||''; $('kmf').value=Math.round((S.kmf||1/3)*1000)/1000;
   $('healpct').value=S.heal??10; $('patmin').value=S.patMin??15; $('patpct').value=S.patPct??50; $('patdef').value=S.patDef??50; $('corrdeg').value=S.corrDeg??30; $('aiRange').checked=!!S.aiRange; $('peace').checked=S.peace!==false; $('day1Morale').checked=S.day1Morale!==false; $('greyRest').checked=!!S.greyRest;
   teamSelects('tMe','teamMe'); teamSelects('tEn','teamEn'); setTer(S.terOn!==false); setArm(S.armOn!==false); applyHidden(); fillShowOnly();
@@ -2224,7 +2242,7 @@ function buildOrders(){ const out=[]; const add=(t,o,txt,act)=>out.push({t:+t||0
   for(const o in (S.rsch||{})){ let rows=[]; try{ rows=rsCompute(o); }catch(e){} (S.rsch[o].q||[]).forEach((it,ix)=>{ const rw=rows[ix]; if(!rw||rw.bad) return; add(rw.t0,o,`Research ${it.n} L${it.t}`+(it.wb==null?'':(it.wb<0?' · speed-up: finish now':' · speed-up −'+it.wb+' h'))+(rw.wb?' ('+Math.round(rw.wb)+' War Bonds)':''),{t:rw.t0});
       if(it.wb!=null) add(rw.t0+1e-6,o,`💰 War Bonds speed-up ${it.wb<0?'(finish now)':'(−'+it.wb+' h)'}: research ${it.n} L${it.t}${rw.wb?' · '+Math.round(rw.wb)+' WB':''}`,{t:rw.t0}); }); }
   // routes, shooting, heals
-  for(const r of routes){ if(isHid(r.me)) continue; const u=curUnit(r); const what=r.stack?stackLabel(r.stack):(u?(r.cnt||1)+'× '+u.n+' L'+u.tier:r.name); const sh=+r.sh||0; let c=null; try{ c=computeRoute(r); }catch(e){}
+  for(const r of routes){ if(isHid(r.me)||isVHid(r.me)) continue; const u=curUnit(r); const what=r.stack?stackLabel(r.stack):(u?(r.cnt||1)+'× '+u.n+' L'+u.tier:r.name); const sh=+r.sh||0; let c=null; try{ c=computeRoute(r); }catch(e){}
     if(r.patrol) add(sh,r.me,`Patrol with ${what}`,{rid:r.id,t:sh});
     else if(r.wps.length>1){ const via=r.wps.length>2?' via '+r.wps.slice(1,-1).map(wpName).join(', '):''; add(sh,r.me,`Move ${what} from ${wpName(r.wps[0])} to ${wpName(r.wps[r.wps.length-1])}${via}${r.fm?' · forced march':''}${(r.prod||r.calc)?' (straight out of the factory)':''}`,{rid:r.id,t:sh}); }
     if(c) c.legs.forEach(l=>{ if(l.healed&&l.healed.cost) add(sh+l.t,r.me,`Heal ${what} · ${l.healed.need} click${l.healed.need>1?'s':''} (${Math.round(l.healed.cost)} WB)`,{rid:r.id,t:sh+l.t}); });
