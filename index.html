@@ -2026,10 +2026,10 @@ function calcRemove(cid){ if(!window.AFCalcAPI) return; S.calc=window.AFCalcAPI.
 const destOfKey=key=>{ for(const k in (S.prod||{})) for(const it of (S.prod[k].q||[])) if(it.k==='u'&&(it.key||it.cid)===key) return destOf(it); return null; };
 const destOf=it=>{ const d=it.src==='calc'?(S.dests||{})[it.cid]:it.dest; return d==null||!P[d]?null:d; };
 function calcFind(id){ id=String(id); let hit=null; for(const k in (S.prod||{})){ const rows=prodCompute(+k); S.prod[k].q.forEach((it,ix)=>{ if(it.src!=='calc') return; if(it.cid===id||it.cid.startsWith(id+'_')){ const r=rows[ix]; if(!hit||(r&&!r.bad&&r.t1>(hit.r&&hit.r.t1||-1))) hit={pi:+k,it,r}; } }); } return hit; }
-var CALCMOUNTED=false, CALCT=0;
+var CALCMOUNTED=false, CALCT=0, CALCPEND=false;
 window.AFBridge={
   load:()=>S.calc||null,
-  save(countries){ S.calc=countries; clearTimeout(CALCT); CALCT=setTimeout(()=>{ calcSync(); save(); renderRoutes(); window.dispatchEvent(new Event('afcalc-tick')); },250); },
+  save(countries){ if(countries===S.calc||JSON.stringify(countries||null)===JSON.stringify(S.calc||null)) return; S.calc=countries; clearTimeout(CALCT); CALCPEND=true; CALCT=setTimeout(()=>{ CALCPEND=false; calcSync(); save(); renderRoutes(); window.dispatchEvent(new Event('afcalc-tick')); },250); },
   info(id){ const cs=Array.isArray(S.calc)?S.calc:[]; let item=null, c0=null; cs.forEach(c=>{ [...(c.items||[]),...(c.buildings||[])].forEach(x=>{ if(String(x.id)===String(id)){ item=x; c0=c; } }); });
     if(!item) return ''; const city=item.city||item.cityName; if(!city) return '📍 Pick a city to plan it on the map'; if(cityPi(city)<0) return '📍 '+city+' is not on this map';
     if(NBYNAME[c0.name]==null) return ''; const h=calcFind(id); if(!h) return '⏳ waiting for the planner…'; if(!h.r||h.r.bad) return '⚠ '+((h.r&&h.r.bad)||'not possible here');
@@ -2061,8 +2061,9 @@ function farmFillList(){ const m=farmAll(); const ids=Object.keys(m).sort((a,b)=
 $('hdrFarm').onchange=e=>{ const v=e.target.value; if(v==='__new'){ $('farmNew').click(); return; } if(v&&v!==S.farmId){ $('farmList').value=v; $('farmLoad').click(); } };
 function esc(t){ return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function farmEnsure(){ if(!S.farmId){ S.farmId='f'+Date.now().toString(36); S.farmName=S.farmName||'Farm '+(Object.keys(farmAll()).length+1); } }
-function farmDirty(){ if(FLOCK) return; clearTimeout(FT); FT=setTimeout(farmWrite,1500); }
-async function farmWrite(){ if(FLOCK) return; farmEnsure(); const t=Date.now(); S.farmSaved=t; store.set('settings',S);
+var FPEND=false;
+function farmDirty(){ if(FLOCK) return; clearTimeout(FT); FPEND=true; FT=setTimeout(farmWrite,1500); }
+async function farmWrite(){ FPEND=false; if(FLOCK) return; farmEnsure(); const t=Date.now(); S.farmSaved=t; store.set('settings',S);
   const body={name:S.farmName,saved:t,json:JSON.stringify(farmSnap()),by:CLIENT_ID};
   const L=farmLocal(); L[S.farmId]=body; store.set('farms',L);
   if(FDB&&FUID){ try{ await FDB.doc(`data/users/${FUID}/f_${S.farmId}`).set(body); await FDB.doc(`data/users/${FUID}/last`).set({id:S.farmId}); FREM[S.farmId]={name:body.name,saved:t}; farmStatus('Saved in your account · '+new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }
@@ -2103,7 +2104,7 @@ $('farmImp').onclick=()=>$('farmFile').click();
 $('farmFile').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{ const o=JSON.parse(await f.text()); const fm=o.farm||o; if(!Array.isArray(fm.routes)) throw 0; clearTimeout(FT); await farmWrite(); farmApply('f'+Date.now().toString(36),o.name||f.name.replace(/\.json$/i,''),fm); await farmWrite(); farmStatus('Imported “'+S.farmName+'”'); }
   catch(err){ farmStatus('Not a farm file'); } });
-window.__farmT=Object.assign(window.__farmT||{},{farms:{snap:farmSnap,write:farmWrite,apply:farmApply,all:farmAll},prov:n=>openProvPop(PBYNAME[n]),ranged:r=>rangedInfo(r,computeRoute(r)),V:()=>V,PX:()=>PX2UNIT,render:()=>renderRoutes(),eg:(a,b)=>{const e=EG[a+'-'+b]||EG[b+'-'+a]; return e?{la:e.la,lb:e.lb,kmf:S.kmf}:null;},dm:()=>{const t0=performance.now(); drawMovers(); return performance.now()-t0;},rsc:o=>rsCompute(String(o)),wbev:()=>{WBE=null; return wbEvents();},aiev:()=>AIEV,aiat:(i,t,rid)=>aiAt(i,t,rid),fights:r=>computeRoute(r).legs.filter(l=>l.fight).map(l=>({p:V[l.p].n,t:(+r.sh||0)+l.t,f:l.fight})),plv:(pi,t)=>portLvl(pi,t),pinfo:()=>{PORTC=null; return portInfo();},legs:r=>computeRoute(r).legs.map(l=>[l.p,+l.t.toFixed(2)]),mir:(r,i)=>moveIntoRange(r,i),setAct:id=>{act=id;},army:i=>{showArmy(i); return $('pop').innerText;},A:()=>A,armProv:()=>armProv,UT:()=>UT,range:id=>unitRange(UT[id]),pick:pj=>{ if(DESTPICK){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); return true; } return false; },pi:n=>PBYNAME[n],rows:pi=>prodCompute(pi),routes:()=>routes,S:()=>S,owner:pi=>({o:P[pi].o,n:calcOwnerName(pi)})});
+window.__farmT=Object.assign(window.__farmT||{},{farms:{snap:farmSnap,write:farmWrite,apply:farmApply,all:farmAll},prov:n=>openProvPop(PBYNAME[n]),ranged:r=>rangedInfo(r,computeRoute(r)),V:()=>V,PX:()=>PX2UNIT,render:()=>{ renderRoutes(); if(window.__rrFlush) window.__rrFlush(); },eg:(a,b)=>{const e=EG[a+'-'+b]||EG[b+'-'+a]; return e?{la:e.la,lb:e.lb,kmf:S.kmf}:null;},dm:()=>{const t0=performance.now(); drawMovers(); return performance.now()-t0;},rsc:o=>rsCompute(String(o)),wbev:()=>{WBE=null; return wbEvents();},aiev:()=>AIEV,aiat:(i,t,rid)=>aiAt(i,t,rid),fights:r=>computeRoute(r).legs.filter(l=>l.fight).map(l=>({p:V[l.p].n,t:(+r.sh||0)+l.t,f:l.fight})),plv:(pi,t)=>portLvl(pi,t),pinfo:()=>{PORTC=null; return portInfo();},legs:r=>computeRoute(r).legs.map(l=>[l.p,+l.t.toFixed(2)]),mir:(r,i)=>moveIntoRange(r,i),setAct:id=>{act=id;},army:i=>{showArmy(i); return $('pop').innerText;},A:()=>A,armProv:()=>armProv,UT:()=>UT,range:id=>unitRange(UT[id]),pick:pj=>{ if(DESTPICK){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); return true; } return false; },pi:n=>PBYNAME[n],rows:pi=>prodCompute(pi),routes:()=>routes,S:()=>S,owner:pi=>({o:P[pi].o,n:calcOwnerName(pi)})});
 farmEnsure(); farmFillList(); farmStatus(S.farmSaved?'Saved in this browser':'');
 (async()=>{ try{ if(!window.claude||!claude.use) return; const [db,us]=await Promise.all([claude.use('db'),claude.use('user')]); if(!db||!us) return; const uid=await us.id(); if(!uid) return; FDB=db; FUID=uid;
   const q=await db.collection(`data/users/${uid}`).get(); let last=null;
@@ -2152,7 +2153,19 @@ $('prodPick').addEventListener('click',()=>{ if(PRODPICK&&PHONE()) openTab('map'
     if(!unsubList){ try{ unsubList=FDB.collection(`data/users/${FUID}`).onSnapshot(q=>{ let ch=false; q.docs.forEach(d=>{ if(!d.id.startsWith('f_')) return; const x=d.data()||{}; const id=d.id.slice(2); if(!FREM[id]||FREM[id].saved!==x.saved||FREM[id].name!==x.name){ FREM[id]={name:x.name,saved:x.saved||0}; ch=true; } }); if(ch) try{ farmFillList(); }catch(e){} }); }catch(e){} }
     if(watched===S.farmId) return; if(unsub){ try{ unsub(); }catch(e){} unsub=null; } watched=S.farmId; if(!watched) return;
     try{ unsub=FDB.doc(`data/users/${FUID}/f_${watched}`).onSnapshot(d=>{ if(!d.exists) return; const x=d.data()||{}; if(x.by===CLIENT_ID) return; if((x.saved||0)<=(S.farmSaved||0)+1) return; if(watched!==S.farmId) return;
-        try{ const L=farmLocal(); L[watched]={name:x.name,saved:x.saved,json:x.json}; store.set('farms',L); farmApply(watched,x.name,JSON.parse(x.json)); S.farmSaved=x.saved; farmStatus('Updated by a teammate · '+new Date(x.saved).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }catch(e){} }); }catch(e){} },1500); }
+        LIVEQ={id:watched,x}; LIVESINCE=LIVESINCE||Date.now(); liveTry(); }); }catch(e){} },1500);
+  /* a teammate's change waits while you are busy (typing, clicking, a pop-up open, your own change not yet saved),
+     so it never throws away what you are doing; it is applied as soon as you pause */
+  var LIVEQ=null, LIVESINCE=0, LASTUI=0;
+  ['pointerdown','keydown','input','wheel'].forEach(ev=>window.addEventListener(ev,()=>{ LASTUI=Date.now(); },true));
+  const busy=()=>{ const ae=document.activeElement; const typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='range';
+    if(FPEND||CALCPEND||typing||routing||PLACING) return true; const wait=Date.now()-LIVESINCE;
+    if(Date.now()-LASTUI<2500&&wait<30000) return true; if(!$('pop').hidden&&wait<20000) return true; return false; };
+  function liveTry(){ if(!LIVEQ) return; const {id,x}=LIVEQ; if(id!==S.farmId||(x.saved||0)<=(S.farmSaved||0)+1){ LIVEQ=null; LIVESINCE=0; return; }
+    if(busy()){ farmStatus('A teammate changed this farm · updates when you pause'); return; }
+    LIVEQ=null; LIVESINCE=0;
+    try{ const L=farmLocal(); L[id]={name:x.name,saved:x.saved,json:x.json}; store.set('farms',L); farmApply(id,x.name,JSON.parse(x.json)); S.farmSaved=x.saved; store.set('settings',S); farmStatus('Updated by a teammate · '+new Date(x.saved).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }catch(e){} }
+  setInterval(liveTry,700); }
 /* a tap that opens a pop-up must not also 'click' a button that ends up under the finger (ghost click) */
 { const pop=$('pop'); let shownAt=0; let wasHidden=pop.hidden; new MutationObserver(()=>{ if(wasHidden&&!pop.hidden) shownAt=performance.now(); wasHidden=pop.hidden; }).observe(pop,{attributes:true,attributeFilter:['hidden']});   /* only when it opens, not on every content change */
   pop.addEventListener('click',e=>{ if(performance.now()-shownAt<350){ e.stopPropagation(); e.preventDefault(); } },true); }
@@ -2236,6 +2249,11 @@ $('ordCopy').onclick=()=>{ const list=$('ordList')._list||[]; const txt=list.map
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok,()=>fallback()); else fallback();
   function fallback(){ const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); ok(); }catch(e){} ta.remove(); } };
 { const _rr=renderRoutes; renderRoutes=function(){ const v=_rr.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } if(RSDIRTY){ RSDIRTY=false; try{ save(); renderRS(); renderWB(); }catch(e){} } return v; }; }
+/* one redraw per action: several renderRoutes() calls in the same click/change are merged into one, run right after the handler (before the screen is drawn) */
+{ const core=renderRoutes; let pend=false, inRR=false, again=0;
+  const flush=()=>{ if(!pend||inRR) return; pend=false; inRR=true; try{ core(); } finally{ inRR=false; } if(pend&&again++<2) flush(); else { pend=false; again=0; } };
+  renderRoutes=function(){ if(BOOTING) return core.apply(this,arguments); pend=true; if(!inRR) queueMicrotask(flush); };
+  window.__rrFlush=flush; const sa=showArmy; showArmy=function(){ flush(); return sa.apply(this,arguments); }; }
 { const _rp=renderProd; renderProd=function(){ const v=_rp.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } if(RSDIRTY){ RSDIRTY=false; try{ save(); renderRS(); renderWB(); }catch(e){} } return v; }; }
 { const _rs=renderRS; renderRS=function(){ const v=_rs.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } return v; }; }
 setTimeout(()=>{ try{ renderOrders(); }catch(e){} },0);
