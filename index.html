@@ -1494,10 +1494,10 @@ function drawMovers(){ const g=$('gMov'); g.innerHTML='';
   /* a unit still in the factory: its route line only shows once it is out */
   document.querySelectorAll('#gRoutes [data-born],#gWp [data-born],#gRoutes [data-after]').forEach(e=>{ const hide=(e.dataset.born!=null&&TNOW<+e.dataset.born-1e-9)||(e.dataset.after!=null&&TNOW<+e.dataset.after-1e-9); e.style.display=hide?'none':''; });
   document.querySelectorAll('#gWp [data-tp]').forEach(e=>{ if(TNOW>+e.dataset.tp+1e-6) e.style.display='none'; else if(e.dataset.born==null||TNOW>=+e.dataset.born-1e-9) e.style.display=''; });   /* route points behind the stack (and its start once it has left) disappear */
-  document.querySelectorAll('#gRoutes [data-me],#gWp [data-me]').forEach(e=>{ if(isHid(+e.dataset.me)||isVHid(+e.dataset.me)) e.style.display='none'; });
+  document.querySelectorAll('#gRoutes [data-me],#gWp [data-me]').forEach(e=>{ if(isHid(+e.dataset.me)) e.style.display='none'; });
   const moving=new Set(); MOVPOS=[];
   const k=iconK();
-  for(const r of routes){ if(!r.wps.length) continue; if(isHid(r.me)||isVHid(r.me)){ if(r.army!=null) moving.add(r.army); continue; } if(effBorn(r)!=null&&TNOW<effBorn(r)-1e-9) continue; const tr=TRACKS[r.id]; let st=tr?trackAt(tr,TNOW):null; try{ trimRouteLine(r,tr,st); }catch(e){}
+  for(const r of routes){ if(!r.wps.length) continue; if(isHid(r.me)){ if(r.army!=null) moving.add(r.army); continue; } if(effBorn(r)!=null&&TNOW<effBorn(r)-1e-9) continue; const tr=TRACKS[r.id]; let st=tr?trackAt(tr,TNOW):null; try{ trimRouteLine(r,tr,st); }catch(e){}
     if(!st){ const w=r.wps[0]; const sp=(typeof w==='number'&&V[w].land&&routeSea(r)&&shipStart(w))?shipStart(w).q:V[w].p; st={p:sp,s:'',idle:true}; }   // not started yet (or only a start point): the stack waits at its start
     if(r.army!=null) moving.add(r.army); if(st.gone) continue;
     if(st.s==='P'&&st.seg&&st.seg.ctr){ const q=st.seg.ctr, rad=patRadius(curUnit(r))/PX2UNIT*0.75, a=(TNOW*60/(S.patMin??15))*2*Math.PI; st={...st,p:[q[0]+rad*Math.cos(a),q[1]+rad*Math.sin(a)]}; } // one lap per patrol attack
@@ -2242,7 +2242,7 @@ function buildOrders(){ const out=[]; const add=(t,o,txt,act)=>out.push({t:+t||0
   for(const o in (S.rsch||{})){ let rows=[]; try{ rows=rsCompute(o); }catch(e){} (S.rsch[o].q||[]).forEach((it,ix)=>{ const rw=rows[ix]; if(!rw||rw.bad) return; add(rw.t0,o,`Research ${it.n} L${it.t}`+(it.wb==null?'':(it.wb<0?' · speed-up: finish now':' · speed-up −'+it.wb+' h'))+(rw.wb?' ('+Math.round(rw.wb)+' War Bonds)':''),{t:rw.t0});
       if(it.wb!=null) add(rw.t0+1e-6,o,`💰 War Bonds speed-up ${it.wb<0?'(finish now)':'(−'+it.wb+' h)'}: research ${it.n} L${it.t}${rw.wb?' · '+Math.round(rw.wb)+' WB':''}`,{t:rw.t0}); }); }
   // routes, shooting, heals
-  for(const r of routes){ if(isHid(r.me)||isVHid(r.me)) continue; const u=curUnit(r); const what=r.stack?stackLabel(r.stack):(u?(r.cnt||1)+'× '+u.n+' L'+u.tier:r.name); const sh=+r.sh||0; let c=null; try{ c=computeRoute(r); }catch(e){}
+  for(const r of routes){ if(isHid(r.me)) continue; const u=curUnit(r); const what=r.stack?stackLabel(r.stack):(u?(r.cnt||1)+'× '+u.n+' L'+u.tier:r.name); const sh=+r.sh||0; let c=null; try{ c=computeRoute(r); }catch(e){}
     if(r.patrol) add(sh,r.me,`Patrol with ${what}`,{rid:r.id,t:sh});
     else if(r.wps.length>1){ const via=r.wps.length>2?' via '+r.wps.slice(1,-1).map(wpName).join(', '):''; add(sh,r.me,`Move ${what} from ${wpName(r.wps[0])} to ${wpName(r.wps[r.wps.length-1])}${via}${r.fm?' · forced march':''}${(r.prod||r.calc)?' (straight out of the factory)':''}`,{rid:r.id,t:sh}); }
     if(c) c.legs.forEach(l=>{ if(l.healed&&l.healed.cost) add(sh+l.t,r.me,`Heal ${what} · ${l.healed.need} click${l.healed.need>1?'s':''} (${Math.round(l.healed.cost)} WB)`,{rid:r.id,t:sh+l.t}); });
