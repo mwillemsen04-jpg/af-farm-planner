@@ -27,7 +27,6 @@ header{grid-area:top;display:flex;align-items:center;gap:14px;padding:10px 16px;
 #stage img{display:block;max-width:none;user-select:none;-webkit-user-drag:none}
 #ov{position:absolute;left:0;top:0;overflow:visible}
 .am{cursor:pointer}
-.am.out{opacity:.35}
 .am .base{fill:#0d1117;fill-opacity:.82;stroke-width:3}
 .am:hover .base{fill:#1e293b}
 .am.sel .base{stroke:#fff!important;stroke-width:4}
@@ -407,6 +406,11 @@ h2{font-size:14px;letter-spacing:.14em;color:var(--brass2)}
 section>h2:first-child::after,section>.row:first-child>h2::after{content:''!important}
 section>h2:first-child,section>.row:first-child>h2{cursor:default}
 
+/* the route of the selected army stands out: bright, on top; the other routes step back */
+#gRoutes .rl.sel{stroke:#ffffff!important;filter:drop-shadow(0 0 2px #000) drop-shadow(0 0 4px rgba(0,0,0,.8));opacity:1!important}
+#gRoutes.hassel .rl:not(.sel){opacity:.35}
+#gWp .wp.sel{stroke:#ffffff!important;fill:#111!important}
+
 </style>
 <style>#calcView *{box-sizing:border-box;margin:0;padding:0}
 #calcView{background:#0d1117;color:#e2e8f0;font-family:'Rajdhani',sans-serif;overflow-x:hidden}
@@ -461,7 +465,7 @@ section>h2:first-child,section>.row:first-child>h2{cursor:default}
   <header>
     <div class="brand">
       <img src="data:image/png;base64,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" alt="">
-      <div><h1>AF Farm Planner <span style="font-size:.55em;color:var(--brass2);letter-spacing:.05em">v172</span></h1><small>Europe Clash of Nations · AI start positions day 1</small></div>
+      <div><h1>AF Farm Planner <span style="font-size:.55em;color:var(--brass2);letter-spacing:.05em">v175</span></h1><small>Europe Clash of Nations · AI start positions day 1</small></div>
     </div>
     <span class="pill">Preview</span>
     <label class="hfarm" title="Which farm you are editing">Farm<select id="hdrFarm" aria-label="Farm you are editing"></select></label>
@@ -562,7 +566,6 @@ section>h2:first-child,section>.row:first-child>h2{cursor:default}
     <section id="teamSec" data-tab="setup">
       <h2>Teams</h2>
       <div class="teams"><div><div class="tm me">Your 5 countries</div><div id="tMe"></div></div><div><div class="tm en">Enemy 5 countries</div><div id="tEn"></div></div></div>
-      <label class="ck"><input type="checkbox" id="greyRest"> Grey out all AI armies outside the two teams</label>
       <label class="ck"><input type="checkbox" id="onlyTeams"> Remove all AI armies outside the two teams (their provinces are empty: your units take them at once, no fights)</label>
       <p class="muted" style="margin:6px 0 0">Countries in the same team count as your own ground: normal speed (no ×0.5), 3 h boarding and landing, no fights. Provinces and armies of your countries turn green, the enemy's red. A province your stack conquers on the timeline takes the colour of its new owner from the moment the stack reaches its centre.</p>
     </section>
@@ -573,11 +576,10 @@ section>h2:first-child,section>.row:first-child>h2{cursor:default}
       <label>Show units of<select id="showOnly"></select></label>
       <p class="muted" id="armCount"></p>
       <label class="ck"><input type="checkbox" id="aiRange"> Show range of AI artillery, ships and planes</label>
-      <div class="ph" style="margin-top:4px">Show or hide countries (only for you)</div>
+      <label class="ck"><input type="checkbox" id="greyRest"> Fade the armies of countries outside the two teams</label>
+      <div class="ph" style="margin-top:4px">Show or hide countries</div>
       <div class="row"><button class="btn sm" id="allOn">All on</button><button class="btn sm" id="allOff">All off</button></div>
       <div class="nats" id="nats"></div>
-      <p class="muted" style="margin:6px 0 0">What you show or hide here, and the map options above, are only for you: teammates keep their own view. Faded armies do not take part in the fights of this farm.</p>
-      <div class="row"><button class="btn sm" id="viewToSim" title="The armies you show now are the ones that fight in this farm, for everyone">Use my view for the fights (everyone)</button></div>
     </section>
 
     <section id="asmSec" data-tab="setup">
@@ -1045,7 +1047,7 @@ function smartFM(){ const D=peaceEnd(); for(const r of routes){ if(!D||!r.fm||r.
 var RRPEND=false;
 function renderRoutes(){ if(BOOTING){ BOOTQ.add('renderRoutes'); return; } if(document.querySelector('.app.calcmode')){ RRPEND=true; EPOCH++; return; } RRPEND=false; EPOCH++; CRON=false; try{ smartFM(); }catch(e){ console.warn('smartFM',e); } migrateStartLevels(); pruneAutoResearch(); { PORTC=null; BLDC=null; const pi0=portInfo(), in0=bldInfo('Infrastructure'); const sig=(Object.keys(pi0).length||Object.keys(in0).length)?JSON.stringify([pi0,in0]):'{}'; if(sig!==PORTSIG){ PORTSIG=sig; DJC.clear(); } } WBR=[]; RANGED={}; routes.forEach(r=>{ r.color=countryCol(r.me); });   /* one colour per country */ aiRecord(); routes=routes.filter(r=>r.wps&&(r.wps.length||r.prod||r.calc)); prodPlace(); $('rbar').hidden=true; for(const k in TRACKS) delete TRACKS[k]; for(const k in CONQ) delete CONQ[k];
   $('noRoutes').hidden=routes.some(r=>!((r.prod||r.calc||r.autoHost)&&r.wps.length<2&&!hasT(r)&&!r.patrol&&!r.carrier&&r.id!==act));
-  const box=$('routes'); box.innerHTML=''; const gR=$('gRoutes'), gW=$('gWp'); gR.innerHTML=''; gW.innerHTML=''; RLBY={}; drawFlash();
+  const box=$('routes'); box.innerHTML=''; const gR=$('gRoutes'), gW=$('gWp'); gR.innerHTML=''; gW.innerHTML=''; RLBY={}; SELDONE=undefined; drawFlash();
   for(const r of routes) if(routeSea(r)) TRACKS[r.id]=buildTrack(r,computeRoute(r));
   for(const r of routes){
     const c=computeRoute(r); stackHpTimeline(r,c); c.legs.forEach(l=>{ if(l.healed&&l.healed.cost) WBR.push({o:r.me,t:+(r.sh||0)+l.t,wb:l.healed.cost,what:'Heal · '+r.name,key:'h|'+r.id}); }); const u=curUnit(r); const isA=r.id===act; BASEPOS[r.id]=c.land?routePosAt(c.land.cr,+(r.sh||0)+c.land.tReady):null; FMT_START=r.sh??null; TRACKS[r.id]=buildTrack(r,c);
@@ -1105,7 +1107,7 @@ function renderRoutes(){ if(BOOTING){ BOOTQ.add('renderRoutes'); return; } if(do
         mk(pre,null); mk(legPts(c.legs.slice(li-1)),after); }
       else mk(legPts(c.legs),null); }
     if(isA) drawBar(r,c);
-    if(!noOrder) r.wps.forEach((w,i)=>{ const cc=document.createElementNS(NS,'circle'); const p=wpPos(w); cc.setAttribute('cx',p[0]); cc.setAttribute('cy',p[1]); cc.setAttribute('class','wp'); cc.setAttribute('stroke',r.color); cc.dataset.me=r.me; cc.dataset.r=i==0?7:5; if(effBorn(r)!=null) cc.dataset.born=effBorn(r); { const lg=c.legs.find(l=>l.wi===i); if(r.sh!=null&&(i===0||lg)) cc.dataset.tp=(+r.sh||0)+(i===0?0:lg.t); } gW.appendChild(cc); });   /* tp = when the stack gets there */
+    if(!noOrder) r.wps.forEach((w,i)=>{ const cc=document.createElementNS(NS,'circle'); const p=wpPos(w); cc.setAttribute('cx',p[0]); cc.setAttribute('cy',p[1]); cc.setAttribute('class','wp'); cc.setAttribute('stroke',r.color); cc.dataset.me=r.me; cc.dataset.rid=r.id; cc.dataset.r=i==0?7:5; if(effBorn(r)!=null) cc.dataset.born=effBorn(r); { const lg=c.legs.find(l=>l.wi===i); if(r.sh!=null&&(i===0||lg)) cc.dataset.tp=(+r.sh||0)+(i===0?0:lg.t); } gW.appendChild(cc); });   /* tp = when the stack gets there */
   }
   resize();
 }
@@ -1116,16 +1118,6 @@ document.addEventListener('keydown',e=>{ if(!routing||e.target.closest('input,se
 /* ---------- AI armies ---------- */
 const NS='http://www.w3.org/2000/svg';
 let hidden=new Set(store.get('hidden',[])); let selArmy=null;
-/* personal view: which armies you see and how the map looks. Kept per person (this browser) and per farm, never shared.
-   'hidden' above stays the farm's own list: the AI armies that do not take part in the fights. */
-const VKEYS=['greyRest','terOn','armOn','aiRange']; let VHID=new Set(); let FDEF={};
-const pvAll=()=>store.get('pview',{}); const pvGet=()=>pvAll()[S.farmId||'_']||{};
-function pvSet(k,v){ const a=pvAll(), id=S.farmId||'_'; a[id]=Object.assign(a[id]||{},{[k]:v}); store.set('pview',a); }
-function isVHid(o){ return VHID.has(+o); }
-function pvOverlay(boot){ const id=S.farmId||'_'; const st=boot?store.get('fdef_'+id,null):null; FDEF={}; VKEYS.forEach(k=>{ FDEF[k]=st?st[k]:S[k]; }); if(!st) store.set('fdef_'+id,FDEF);
-  const pv=pvGet(); VKEYS.forEach(k=>{ if(k in pv) S[k]=pv[k]; }); }
-function snapS(){ const o=Object.assign({},S); VKEYS.forEach(k=>{ if(FDEF[k]===undefined) delete o[k]; else o[k]=FDEF[k]; }); return o; }
-pvOverlay(true);
 /* hidden country: switched off by hand, or (with 'only the two teams') every country outside your team and the enemy team */
 function isHid(o){ if(hidden.has(o)||hidden.has(String(o))||hidden.has(+o)) return true; if(!S.onlyTeams) return false; const k=String(o); const me=(S.teamMe||[]).map(String), en=(S.teamEn||[]).map(String); if(!me.filter(Boolean).length&&!en.filter(Boolean).length) return false; return !me.includes(k)&&!en.includes(k); }
 const gA=$('gArm');
@@ -1143,18 +1135,19 @@ const armEls=A.map((a,i)=>{ const g=document.createElementNS(NS,'g'); const n=a.
 function nearestNode(x,y,max){ let b=-1,bd=max*max; V.forEach((p,i)=>{const d=(p.p[0]-x)**2+(p.p[1]-y)**2; if(d<bd){bd=d;b=i;}}); return b; }
 function nearestProv(x,y,max){ let b=-1,bd=max*max; P.forEach((p,i)=>{const d=(p.p[0]-x)**2+(p.p[1]-y)**2; if(d<bd){bd=d;b=i;}}); return b; }
 const armProv=A.map(a=>nearestProv(a.p[0],a.p[1],60));
-function applyHidden(){ armEls.forEach((el,i)=>{ el.style.display=isVHid(A[i].o)?'none':''; el.classList.toggle('out',isHid(A[i].o)); }); const vis=A.filter(a=>!isVHid(a.o)); const u=vis.reduce((s,a)=>s+a.u.reduce((t,x)=>t+x[1],0),0);
-  $('armCount').textContent=`${vis.length} armies with ${u} units visible (of ${A.length}). Click an army for its units.`; store.set('hidden',[...hidden]); try{ lastSig=''; MVER++; drawMovers(); }catch(e){} }
+function applyHidden(){ armEls.forEach((el,i)=>{el.style.display=isHid(A[i].o)?'none':'';}); const vis=A.filter(a=>!isHid(a.o)); const u=vis.reduce((s,a)=>s+a.u.reduce((t,x)=>t+x[1],0),0);
+  $('armCount').textContent=`${vis.length} armies with ${u} units visible (of ${A.length}). Click an army for its units.`; store.set('hidden',[...hidden]); try{ lastSig=''; MVER++; drawMovers(); }catch(e){} try{ syncShowOnly(); }catch(e){} }
+/* show which view is active, so picking 'Everyone' (or another view) always works again */
+function syncShowOnly(){ const sel=$('showOnly'); if(!sel) return; const ks=Object.keys(cnt); const hid=new Set(ks.filter(k=>hidden.has(+k)||hidden.has(k)));
+  const keepOf=v=>o=>v==='all'||(v==='team:me'&&teamOf(o)==='me')||(v==='team:en'&&teamOf(o)==='en')||(v==='team:both'&&teamOf(o)!=='')||String(o)===v;
+  const opts=['all','team:me','team:en','team:both'].concat(ks);
+  for(const v of opts){ const keep=keepOf(v); if(ks.every(k=>keep(k)?!hid.has(k):hid.has(k))){ sel.value=v; return; } }
+  sel.value='custom'; }
 const cnt={}; A.forEach(a=>cnt[a.o]=(cnt[a.o]||0)+1);
-/* your view at the start: your own whole team (the farm's list when no team is set); after that whatever you pick */
-function pvLoadView(){ const pv=pvGet(); if(Array.isArray(pv.vh)){ VHID=new Set(pv.vh.map(Number)); return; } VHID=new Set(); const me=(S.teamMe||[]).filter(Boolean).map(String);
-  if(me.length) Object.keys(cnt).forEach(k=>{ if(!me.includes(String(k))) VHID.add(+k); }); else hidden.forEach(o=>VHID.add(+o)); }
-pvLoadView();
-$('nats').innerHTML=natList.filter(([k])=>cnt[k]).map(([k,v])=>`<label><input type="checkbox" data-o="${k}" ${isVHid(+k)?'':'checked'}><span class="chip" style="background:${v.c}"></span>${v.n}<span class="c">${cnt[k]}</span></label>`).join('');
-$('nats').addEventListener('change',e=>{const o=+e.target.dataset.o; e.target.checked?VHID.delete(o):VHID.add(o); pvSet('vh',[...VHID]); applyHidden(); drawRanges();});
-$('allOn').onclick=()=>{VHID.clear(); pvSet('vh',[]); document.querySelectorAll('#nats input').forEach(i=>i.checked=true); applyHidden(); drawRanges();};
-$('allOff').onclick=()=>{Object.keys(cnt).forEach(k=>VHID.add(+k)); pvSet('vh',[...VHID]); document.querySelectorAll('#nats input').forEach(i=>i.checked=false); applyHidden(); drawRanges();};
-$('viewToSim').onclick=()=>{ hidden.clear(); VHID.forEach(o=>hidden.add(+o)); try{ DJC.clear(); }catch(e){} save(); applyHidden(); renderRoutes(); };
+$('nats').innerHTML=natList.filter(([k])=>cnt[k]).map(([k,v])=>`<label><input type="checkbox" data-o="${k}" ${isHid(+k)?'':'checked'}><span class="chip" style="background:${v.c}"></span>${v.n}<span class="c">${cnt[k]}</span></label>`).join('');
+$('nats').addEventListener('change',e=>{const o=+e.target.dataset.o; e.target.checked?hidden.delete(o):hidden.add(o); applyHidden();});
+$('allOn').onclick=()=>{hidden.clear(); document.querySelectorAll('#nats input').forEach(i=>i.checked=true); applyHidden();};
+$('allOff').onclick=()=>{Object.keys(cnt).forEach(k=>hidden.add(+k)); document.querySelectorAll('#nats input').forEach(i=>i.checked=false); applyHidden();};
 applyHidden();
 // teams: 5 own and 5 enemy countries (stored per viewer)
 S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','',''];
@@ -1181,23 +1174,23 @@ const NVP={}; P.forEach(p=>{ NVP[p.o]=(NVP[p.o]||0)+(p.vp||0); });
 const bigNats=natList.filter(([k])=>NVP[k]>=50);
 function teamSelects(box,key){ const opt=bigNats.map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
   $(box).innerHTML=S[key].map((v,j)=>`<select data-j="${j}" aria-label="Country ${j+1}"><option value="">—</option>${opt}</select>`).join('');
-  $(box).querySelectorAll('select').forEach(sel=>{ sel.value=S[key][+sel.dataset.j]||''; sel.onchange=()=>{ S[key][+sel.dataset.j]=sel.value; save(); if(!Array.isArray(pvGet().vh)){ pvLoadView(); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o)); applyHidden(); } applyTeams(); renderRoutes(); }; }); }
+  $(box).querySelectorAll('select').forEach(sel=>{ sel.value=S[key][+sel.dataset.j]||''; sel.onchange=()=>{ S[key][+sel.dataset.j]=sel.value; save(); applyTeams(); renderRoutes(); }; }); }
 teamSelects('tMe','teamMe'); teamSelects('tEn','teamEn'); setTimeout(applyTeams,0);
-$('greyRest').checked=!!S.greyRest; $('greyRest').addEventListener('change',e=>{ S.greyRest=e.target.checked; pvSet('greyRest',S.greyRest); store.set('settings',S); applyTeams(); });
+$('greyRest').checked=!!S.greyRest; $('greyRest').addEventListener('change',e=>{ S.greyRest=e.target.checked; save(); applyTeams(); });
 $('onlyTeams').checked=!!S.onlyTeams; $('onlyTeams').addEventListener('change',e=>{ S.onlyTeams=e.target.checked; DJC.clear(); save(); try{ applyTeams(); }catch(x){} renderRoutes(); });
 // quick filter: everyone, one team, or one country (sets the same show/hide list as the checkboxes)
 function fillShowOnly(){ const cur=$('showOnly').value||'all';
-  $('showOnly').innerHTML=`<option value="all">Everyone</option><option value="team:me">Your team</option><option value="team:en">Enemy team</option><option value="team:both">Both teams</option><optgroup label="One country">${natList.filter(([k])=>cnt[k]).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('')}</optgroup>`;
+  $('showOnly').innerHTML=`<option value="custom" disabled>Custom (see the list below)</option><option value="all">Everyone</option><option value="team:me">Your team</option><option value="team:en">Enemy team</option><option value="team:both">Both teams</option><optgroup label="One country">${natList.filter(([k])=>cnt[k]).map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('')}</optgroup>`;
   $('showOnly').value=cur; }
 fillShowOnly();
 function setTer(on){ S.terOn=on; $('terOn').checked=on; $('tTer').setAttribute('aria-pressed',on); $('ov').classList.toggle('noter',!on); }
 function setArm(on){ S.armOn=on; $('tArm').setAttribute('aria-pressed',on); $('ov').classList.toggle('noarm',!on); setTimeout(resize,0); }
 setTer(S.terOn!==false); setArm(S.armOn!==false);
-$('terOn').addEventListener('change',e=>{ setTer(e.target.checked); pvSet('terOn',S.terOn); store.set('settings',S); });
-$('tTer').onclick=()=>{ setTer(S.terOn===false); pvSet('terOn',S.terOn); store.set('settings',S); };
-$('tArm').onclick=()=>{ setArm(S.armOn===false); pvSet('armOn',S.armOn); store.set('settings',S); };
+$('terOn').addEventListener('change',e=>{ setTer(e.target.checked); save(); });
+$('tTer').onclick=()=>{ setTer(S.terOn===false); save(); };
+$('tArm').onclick=()=>{ setArm(S.armOn===false); save(); };
 $('showOnly').addEventListener('change',e=>{ const v=e.target.value; const keep=o=>v==='all'||(v==='team:me'&&teamOf(o)==='me')||(v==='team:en'&&teamOf(o)==='en')||(v==='team:both'&&teamOf(o)!=='')||String(o)===v;
-  VHID.clear(); Object.keys(cnt).forEach(k=>{ if(!keep(k)) VHID.add(+k); }); pvSet('vh',[...VHID]); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o)); applyHidden(); drawRanges(); });
+  hidden.clear(); Object.keys(cnt).forEach(k=>{ if(!keep(k)) hidden.add(+k); }); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isHid(+i.dataset.o)); applyHidden(); drawRanges(); });
 
 function armySpeedTxt(a){ let m=Infinity; for(const [id] of a.u){ const u=UT[id]; if(u&&u.sp&&u.sp['0']!=null) m=Math.min(m,u.sp['0']*KMH); } return isFinite(m)?Math.round(m)+' km/h (slowest unit)':'– (air force)'; }
 function planFromArmy(i){ const a=A[i]; const pi=armProv[i]; if(pi<0) return;
@@ -1461,7 +1454,7 @@ function rangeCircle(g,p,rg,cls,col,label){ const c=document.createElementNS(NS,
   if(label){ const t=document.createElementNS(NS,'text'); t.setAttribute('x',p[0]); t.setAttribute('y',p[1]-rg/PX2UNIT-5); t.setAttribute('text-anchor','middle'); t.setAttribute('class','rngt'); t.setAttribute('fill',col||'#fca5a5'); t.textContent=label; g.appendChild(t); } }
 function rangesOf(ids){ const m=new Map(); ids.forEach(id=>{ const u=UT[id]; const rg=unitRange(u); if(rg&&!(m.has(rg))) m.set(rg,u.n); else if(rg&&!m.get(rg).split(' / ').includes(u.n)) m.set(rg,m.get(rg)+' / '+u.n); }); return [...m.entries()].sort((a,b)=>b[0]-a[0]); }
 function drawRanges(){ const g=$('gRange'); if(!g) return; g.innerHTML='';
-  if(S.aiRange) A.forEach((a,i)=>{ if(isHid(a.o)||isVHid(a.o)) return; const rg=Math.max(0,...a.u.map(([id])=>unitRange(UT[id]))); if(rg) rangeCircle(g,a.p,rg,'rng ai',null,''); });
+  if(S.aiRange) A.forEach((a,i)=>{ if(isHid(a.o)) return; const rg=Math.max(0,...a.u.map(([id])=>unitRange(UT[id]))); if(rg) rangeCircle(g,a.p,rg,'rng ai',null,''); });
   if(selArmy!=null){ const a=A[selArmy]; rangesOf(a.u.map(x=>x[0])).forEach(([rg,n])=>rangeCircle(g,a.p,rg,'rng ai',null,`${n} · ${rg} km`)); }
   { const r=active(); if(r&&hasT(r)) r.targets.forEach(T=>{ if(!A[T.i]||T.at>=r.wps.length) return; const q=A[T.i].p, sp=wpPos(r.wps[T.at]), ln=document.createElementNS(NS,'line'); ln.setAttribute('x1',sp[0]); ln.setAttribute('y1',sp[1]); ln.setAttribute('x2',q[0]); ln.setAttribute('y2',q[1]); ln.setAttribute('class','shotl'); g.appendChild(ln); }); }
   const r=active(); if(r&&r.wps.length){ const ids=r.stack?r.stack.map(x=>x[0]):(curUnit(r)?[curUnit(r).id]:[]); const mis=!r.stack&&MISSILE.has((curUnit(r)||{}).n); const p=mis?V[r.wps[0]].p:basePos(r);
@@ -1481,7 +1474,12 @@ function corridorFor(g,r,st){ const u=curUnit(r), R=unitRange(u)/PX2UNIT, deg=S.
   else if(r.patP){ base=basePos(r); tgt=r.patP; } else return;
   wedge(g,base,Math.atan2(tgt[1]-base[1],tgt[0]-base[0]),R,deg,'corr'+(flying?'':' pre')); }
 /* the route line behind a moving stack disappears: only the part still in front of it stays */
-var RLBY={};
+var RLBY={}; var SELDONE=null;
+function markSel(force){ if(!force&&SELDONE===act) return; SELDONE=act; const gR=$('gRoutes'), gW=$('gWp'); if(!gR) return;
+  gR.querySelectorAll('.rl.sel').forEach(e=>e.classList.remove('sel')); gW.querySelectorAll('.wp.sel').forEach(e=>e.classList.remove('sel'));
+  const pls=act!=null?(RLBY[act]||[]).filter(e=>e.isConnected):[]; gR.classList.toggle('hassel',pls.length>0);
+  pls.forEach(pl=>{ pl.classList.add('sel'); gR.appendChild(pl); });   /* on top of the other lines */
+  if(act!=null) gW.querySelectorAll('.wp[data-rid="'+act+'"]').forEach(c=>{ c.classList.add('sel'); gW.appendChild(c); }); }
 function trimRouteLine(r,tr,st){ const pls=(RLBY[r.id]||[]).filter(x=>x.isConnected&&x._pts&&x._pts.length>1); if(!pls.length) return;
   const full=pl=>pl.setAttribute('points',pl._pts.map(p=>p.join(',')).join(' '));
   if(!tr||!st||TNOW<=tr.t0+1e-9){ pls.forEach(full); return; }                      // not left yet: whole line
@@ -1495,6 +1493,7 @@ function drawMovers(){ const g=$('gMov'); g.innerHTML='';
   document.querySelectorAll('#gRoutes [data-born],#gWp [data-born],#gRoutes [data-after]').forEach(e=>{ const hide=(e.dataset.born!=null&&TNOW<+e.dataset.born-1e-9)||(e.dataset.after!=null&&TNOW<+e.dataset.after-1e-9); e.style.display=hide?'none':''; });
   document.querySelectorAll('#gWp [data-tp]').forEach(e=>{ if(TNOW>+e.dataset.tp+1e-6) e.style.display='none'; else if(e.dataset.born==null||TNOW>=+e.dataset.born-1e-9) e.style.display=''; });   /* route points behind the stack (and its start once it has left) disappear */
   document.querySelectorAll('#gRoutes [data-me],#gWp [data-me]').forEach(e=>{ if(isHid(+e.dataset.me)) e.style.display='none'; });
+  try{ markSel(); }catch(e){}
   const moving=new Set(); MOVPOS=[];
   const k=iconK();
   for(const r of routes){ if(!r.wps.length) continue; if(isHid(r.me)){ if(r.army!=null) moving.add(r.army); continue; } if(effBorn(r)!=null&&TNOW<effBorn(r)-1e-9) continue; const tr=TRACKS[r.id]; let st=tr?trackAt(tr,TNOW):null; try{ trimRouteLine(r,tr,st); }catch(e){}
@@ -1516,8 +1515,8 @@ function drawMovers(){ const g=$('gMov'); g.innerHTML='';
         const fg=document.createElementNS(NS,'rect'); fg.setAttribute('x',-15); fg.setAttribute('y',18); fg.setAttribute('width',(30*f).toFixed(1)); fg.setAttribute('height',5); fg.setAttribute('rx',2); fg.setAttribute('fill',f>0.6?'#4ade80':f>0.3?'#facc15':'#f87171'); grp.appendChild(fg);
         const tt=document.createElementNS(NS,'title'); tt.textContent=`HP ${H.hp.toFixed(1)} / ${H.max.toFixed(1)}`; grp.appendChild(tt); } }
     g.appendChild(grp); }
-  armEls.forEach((el,i)=>{ const n=aiAlive(i,TNOW,null); el.style.display=(isVHid(A[i].o)||moving.has(i)||n<=0)?'none':''; armCount(el,i,n); armHp(el,i); });
-  for(const key in RANGED){ const i=+key, X=RANGED[key], R=X.R, T0=X.sh+R.t0; if(isHid(A[i].o)||isVHid(A[i].o)||TNOW<T0-1e-9) continue;
+  armEls.forEach((el,i)=>{ const n=aiAlive(i,TNOW,null); el.style.display=(isHid(A[i].o)||moving.has(i)||n<=0)?'none':''; armCount(el,i,n); armHp(el,i); });
+  for(const key in RANGED){ const i=+key, X=RANGED[key], R=X.R, T0=X.sh+R.t0; if(isHid(A[i].o)||TNOW<T0-1e-9) continue;
     let row=null; for(const w of R.rows){ if(X.sh+w.t<=TNOW+1e-9) row=w; else break; } if(!row) continue;
     // pulled units on their way to the shooter (a convoy once they are at sea); gone when killed
     let pN=row.pN||0; const arr=R.arrive!=null?X.sh+R.arrive:null; if(!pN||!R.trip||!R.trip.path||arr==null) continue;
@@ -1682,7 +1681,7 @@ function click(e,r){ const [x,y]=world(e,r);
   if(PLACING){ const pi=nearestNode(x,y,70); if(pi>=0) placeAt(pi); return; }
   if(DESTPICK){ const pv=provinceAt(x,y); const pj=pv>=0?pv:nearestNode(x,y,90); if(pj>=0){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); } return; }
   if(PRODPICK){ const pi=provinceAt(x,y); const pj=pi>=0?pi:nearestNode(x,y,70); if(pj>=0&&V[pj].land){ S.prodPi=pj; PRODPICK=false; $('prodPick').classList.remove('on'); $('hint').hidden=true; save(); renderProd(); sideScroll($('prodSec')); } return; }
-  if(SHOOTPICK&&r0&&r0.id===SHOOTPICK){ let best=-1, bd=40/s; A.forEach((a,i)=>{ if(isHid(a.o)||isVHid(a.o)||friendly(a.o,r0.me)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){ bd=d; best=i; } }); if(best>=0){ if(moveIntoRange(r0,best)!==false){ r0.targets=r0.targets||[]; r0.targets.push({i:best,at:r0.wps.length-1,all:false}); delete r0.tsel; } SHOOTPICK=null; patHint(); save(); renderRoutes(); } return; }
+  if(SHOOTPICK&&r0&&r0.id===SHOOTPICK){ let best=-1, bd=40/s; A.forEach((a,i)=>{ if(isHid(a.o)||friendly(a.o,r0.me)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){ bd=d; best=i; } }); if(best>=0){ if(moveIntoRange(r0,best)!==false){ r0.targets=r0.targets||[]; r0.targets.push({i:best,at:r0.wps.length-1,all:false}); delete r0.tsel; } SHOOTPICK=null; patHint(); save(); renderRoutes(); } return; }
   if(FREEPICK&&r0&&r0.id===FREEPICK){ const fe=snapToLine(x,y,40/s); if(fe){ r0.wps.push(fe); save(); renderRoutes(); } return; }
   if(CARPICK&&r0&&r0.id===CARPICK){ let best=null, bd=40/s; MOVPOS.forEach(m=>{ if(isCarrier(m.r)){ const d=Math.hypot(m.p[0]-x,m.p[1]-y); if(d<bd){ bd=d; best=m.r; } } }); if(best){ r0.carrier=best.id; CARPICK=null; patHint(); save(); renderRoutes(); } return; }
   if(PATPICK&&r0&&r0.id===PATPICK){ if(PATNEXT&&r0.patP){ r0.patNext=r0.patNext||[]; r0.patNext.push({p:clampPatrol(r0,[x,y],r0.patNext.length+1),stay:60}); FOCUSSTAY=r0.patNext.length; } else { r0.patP=clampPatrol(r0,[x,y],0); (r0.patNext||[]).forEach((n,j)=>n.p=clampPatrol(r0,n.p,j+1)); } PATPICK=null; PATNEXT=false; patHint(); save(); renderRoutes(); return; }
@@ -1694,12 +1693,12 @@ function click(e,r){ const [x,y]=world(e,r);
   const k=iconK(), rad=17*k;
   // armies that already have a route are drawn as that route's stack: clicking them selects the route, never a second copy
   const routed=new Set(routes.filter(q=>q.army!=null).map(q=>q.army));
-  if(S.armOn!==false) A.forEach((a,i)=>{ if(isVHid(a.o)||routed.has(i)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){bd=d;best=i;} });
+  if(S.armOn!==false) A.forEach((a,i)=>{ if(isHid(a.o)||routed.has(i)) return; const d=Math.hypot(a.p[0]-x,a.p[1]-y); if(d<bd){bd=d;best=i;} });
   const armyHit=best>=0&&(bd<=rad||(hit&&!hit.closest('#gMov')));
   if(!armyHit){ if(mine.length===1) return selectRoute(mine[0].r); if(mine.length>1) return showPicker([],mine.map(m=>m.r)); const wasProv=PRODBOX==='pop'&&!$('pop').hidden?S.prodPi:null; closePop(); if(act!=null){ act=null; save(); renderRoutes(); }
     const pv=provinceAt(x,y); if(pv>=0&&pv!==wasProv) openProvPop(pv); return; }
   // several armies under the click (icons on top of each other): let the player pick one
-  const under=A.map((a,i)=>i).filter(i=>S.armOn!==false&&!isVHid(A[i].o)&&!routed.has(i)&&Math.hypot(A[i].p[0]-x,A[i].p[1]-y)<=Math.max(rad,bd)+rad*0.9)
+  const under=A.map((a,i)=>i).filter(i=>S.armOn!==false&&!isHid(A[i].o)&&!routed.has(i)&&Math.hypot(A[i].p[0]-x,A[i].p[1]-y)<=Math.max(rad,bd)+rad*0.9)
     .sort((i,j)=>Math.hypot(A[i].p[0]-x,A[i].p[1]-y)-Math.hypot(A[j].p[0]-x,A[j].p[1]-y));
   if(under.length>1||mine.length) showPicker(under,mine.map(m=>m.r)); else showArmy(best); }
 function selectRoute(r){ closePop(); act=r.id; syncControls(r); save(); renderRoutes(); }
@@ -1727,7 +1726,7 @@ map.addEventListener('pointermove',e=>{ if(DRAG) return; const rr=map.getBoundin
   const bump=f=>function(){ MVER++; return f.apply(this,arguments); }; renderRoutes=bump(renderRoutes); applyHidden=bump(applyHidden); }
 $('day1Morale').checked=S.day1Morale!==false; $('day1Morale').addEventListener('change',e=>{ S.day1Morale=e.target.checked; save(); prodPlace(); renderRoutes(); if(S.prodPi!=null) renderProd(); window.dispatchEvent(new Event('afcalc-tick')); });
 $('peace').checked=S.peace!==false; $('peace').addEventListener('change',e=>{ S.peace=e.target.checked; save(); renderRoutes(); });
-$('aiRange').checked=!!S.aiRange; $('aiRange').addEventListener('change',e=>{ S.aiRange=e.target.checked; pvSet('aiRange',S.aiRange); store.set('settings',S); drawRanges(); });
+$('aiRange').checked=!!S.aiRange; $('aiRange').addEventListener('change',e=>{ S.aiRange=e.target.checked; save(); drawRanges(); });
 // the old example route (id 1) is gone for good
 if(routes.some(r=>r.id===1&&(r.name==='Example'||r.name==='Voorbeeld'))){ routes=routes.filter(r=>!(r.id===1&&(r.name==='Example'||r.name==='Voorbeeld'))); if(act===1) act=null; save(); }
 if(routing) setRouting(true);
@@ -2044,10 +2043,10 @@ function calcRemove(cid){ if(!window.AFCalcAPI) return; S.calc=window.AFCalcAPI.
 const destOfKey=key=>{ for(const k in (S.prod||{})) for(const it of (S.prod[k].q||[])) if(it.k==='u'&&(it.key||it.cid)===key) return destOf(it); return null; };
 const destOf=it=>{ const d=it.src==='calc'?(S.dests||{})[it.cid]:it.dest; return d==null||!P[d]?null:d; };
 function calcFind(id){ id=String(id); let hit=null; for(const k in (S.prod||{})){ const rows=prodCompute(+k); S.prod[k].q.forEach((it,ix)=>{ if(it.src!=='calc') return; if(it.cid===id||it.cid.startsWith(id+'_')){ const r=rows[ix]; if(!hit||(r&&!r.bad&&r.t1>(hit.r&&hit.r.t1||-1))) hit={pi:+k,it,r}; } }); } return hit; }
-var CALCMOUNTED=false, CALCT=0, CALCPEND=false;
+var CALCMOUNTED=false, CALCT=0;
 window.AFBridge={
   load:()=>S.calc||null,
-  save(countries){ if(countries===S.calc||JSON.stringify(countries||null)===JSON.stringify(S.calc||null)) return; S.calc=countries; clearTimeout(CALCT); CALCPEND=true; CALCT=setTimeout(()=>{ CALCPEND=false; calcSync(); save(); renderRoutes(); window.dispatchEvent(new Event('afcalc-tick')); },250); },
+  save(countries){ S.calc=countries; clearTimeout(CALCT); CALCT=setTimeout(()=>{ calcSync(); save(); renderRoutes(); window.dispatchEvent(new Event('afcalc-tick')); },250); },
   info(id){ const cs=Array.isArray(S.calc)?S.calc:[]; let item=null, c0=null; cs.forEach(c=>{ [...(c.items||[]),...(c.buildings||[])].forEach(x=>{ if(String(x.id)===String(id)){ item=x; c0=c; } }); });
     if(!item) return ''; const city=item.city||item.cityName; if(!city) return '📍 Pick a city to plan it on the map'; if(cityPi(city)<0) return '📍 '+city+' is not on this map';
     if(NBYNAME[c0.name]==null) return ''; const h=calcFind(id); if(!h) return '⏳ waiting for the planner…'; if(!h.r||h.r.bad) return '⚠ '+((h.r&&h.r.bad)||'not possible here');
@@ -2067,7 +2066,7 @@ window.addEventListener('load',()=>{ let v=null; try{ v=sessionStorage.getItem('
 
 /* ---------- farms: whole plans saved automatically (your account via db, this browser as backup) ---------- */
 var FDB=null, FUID=null, FT=null, FLOCK=false, FREM={};
-function farmSnap(){ return {v:1,routes,act,hidden:[...hidden],S:snapS()}; }
+function farmSnap(){ return {v:1,routes,act,hidden:[...hidden],S:Object.assign({},S)}; }
 function farmLocal(){ return store.get('farms',{}); }
 function farmStatus(t){ $('farmSt').textContent=t; }
 function farmAll(){ const m={}; const L=farmLocal(); for(const k in L) m[k]={name:L[k].name,saved:L[k].saved}; for(const k in FREM) if(!m[k]||FREM[k].saved>m[k].saved) m[k]={name:FREM[k].name,saved:FREM[k].saved}; return m; }
@@ -2079,9 +2078,8 @@ function farmFillList(){ const m=farmAll(); const ids=Object.keys(m).sort((a,b)=
 $('hdrFarm').onchange=e=>{ const v=e.target.value; if(v==='__new'){ $('farmNew').click(); return; } if(v&&v!==S.farmId){ $('farmList').value=v; $('farmLoad').click(); } };
 function esc(t){ return String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function farmEnsure(){ if(!S.farmId){ S.farmId='f'+Date.now().toString(36); S.farmName=S.farmName||'Farm '+(Object.keys(farmAll()).length+1); } }
-var FPEND=false;
-function farmDirty(){ if(FLOCK) return; clearTimeout(FT); FPEND=true; FT=setTimeout(farmWrite,1500); }
-async function farmWrite(){ FPEND=false; if(FLOCK) return; farmEnsure(); const t=Date.now(); S.farmSaved=t; store.set('settings',S);
+function farmDirty(){ if(FLOCK) return; clearTimeout(FT); FT=setTimeout(farmWrite,1500); }
+async function farmWrite(){ if(FLOCK) return; farmEnsure(); const t=Date.now(); S.farmSaved=t; store.set('settings',S);
   const body={name:S.farmName,saved:t,json:JSON.stringify(farmSnap()),by:CLIENT_ID};
   const L=farmLocal(); L[S.farmId]=body; store.set('farms',L);
   if(FDB&&FUID){ try{ await FDB.doc(`data/users/${FUID}/f_${S.farmId}`).set(body); await FDB.doc(`data/users/${FUID}/last`).set({id:S.farmId}); FREM[S.farmId]={name:body.name,saved:t}; farmStatus('Saved in your account · '+new Date(t).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }
@@ -2092,9 +2090,9 @@ async function farmBody(id){ let b=farmLocal()[id]; if(FDB&&FUID&&FREM[id]&&(!b|
 function farmApply(id,name,f){ FLOCK=true; clearTimeout(FT);
   if(routing) setRouting(false); if(PLACING) setPlacing(false); PATPICK=null; PATNEXT=false; CARPICK=null; FREEPICK=null; SHOOTPICK=null; closePop();
   const keep=Object.keys(S); for(const k of keep) if(!(k in (f.S||{}))&&!['cal','patv','corrv'].includes(k)) delete S[k];
-  Object.assign(S,f.S||{}); S.farmId=id; S.farmName=name; S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','','']; pvOverlay(false);
+  Object.assign(S,f.S||{}); S.farmId=id; S.farmName=name; S.teamMe=S.teamMe||['','','','','']; S.teamEn=S.teamEn||['','','','',''];
   routes=(f.routes||[]).map(r=>{ if(r.sh==null) r.sh=0; return r; }); act=f.act??null;
-  hidden.clear(); (f.hidden||[]).forEach(o=>hidden.add(o)); pvLoadView(); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isVHid(+i.dataset.o));
+  hidden.clear(); (f.hidden||[]).forEach(o=>hidden.add(o)); document.querySelectorAll('#nats input').forEach(i=>i.checked=!isHid(+i.dataset.o)); try{ syncShowOnly(); }catch(e){}
   syncControls(S); setStartInputs(S.sh??0); $('gstart').value=S.gstart||''; $('kmf').value=Math.round((S.kmf||1/3)*1000)/1000;
   $('healpct').value=S.heal??10; $('patmin').value=S.patMin??15; $('patpct').value=S.patPct??50; $('patdef').value=S.patDef??50; $('corrdeg').value=S.corrDeg??30; $('aiRange').checked=!!S.aiRange; $('peace').checked=S.peace!==false; $('day1Morale').checked=S.day1Morale!==false; $('greyRest').checked=!!S.greyRest;
   teamSelects('tMe','teamMe'); teamSelects('tEn','teamEn'); setTer(S.terOn!==false); setArm(S.armOn!==false); applyHidden(); fillShowOnly();
@@ -2122,7 +2120,7 @@ $('farmImp').onclick=()=>$('farmFile').click();
 $('farmFile').addEventListener('change',async e=>{ const f=e.target.files[0]; e.target.value=''; if(!f) return;
   try{ const o=JSON.parse(await f.text()); const fm=o.farm||o; if(!Array.isArray(fm.routes)) throw 0; clearTimeout(FT); await farmWrite(); farmApply('f'+Date.now().toString(36),o.name||f.name.replace(/\.json$/i,''),fm); await farmWrite(); farmStatus('Imported “'+S.farmName+'”'); }
   catch(err){ farmStatus('Not a farm file'); } });
-window.__farmT=Object.assign(window.__farmT||{},{farms:{snap:farmSnap,write:farmWrite,apply:farmApply,all:farmAll},prov:n=>openProvPop(PBYNAME[n]),ranged:r=>rangedInfo(r,computeRoute(r)),V:()=>V,PX:()=>PX2UNIT,render:()=>{ renderRoutes(); if(window.__rrFlush) window.__rrFlush(); },eg:(a,b)=>{const e=EG[a+'-'+b]||EG[b+'-'+a]; return e?{la:e.la,lb:e.lb,kmf:S.kmf}:null;},dm:()=>{const t0=performance.now(); drawMovers(); return performance.now()-t0;},rsc:o=>rsCompute(String(o)),wbev:()=>{WBE=null; return wbEvents();},aiev:()=>AIEV,aiat:(i,t,rid)=>aiAt(i,t,rid),fights:r=>computeRoute(r).legs.filter(l=>l.fight).map(l=>({p:V[l.p].n,t:(+r.sh||0)+l.t,f:l.fight})),plv:(pi,t)=>portLvl(pi,t),pinfo:()=>{PORTC=null; return portInfo();},legs:r=>computeRoute(r).legs.map(l=>[l.p,+l.t.toFixed(2)]),mir:(r,i)=>moveIntoRange(r,i),setAct:id=>{act=id;},army:i=>{showArmy(i); return $('pop').innerText;},A:()=>A,armProv:()=>armProv,UT:()=>UT,range:id=>unitRange(UT[id]),pick:pj=>{ if(DESTPICK){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); return true; } return false; },pi:n=>PBYNAME[n],rows:pi=>prodCompute(pi),routes:()=>routes,S:()=>S,owner:pi=>({o:P[pi].o,n:calcOwnerName(pi)})});
+window.__farmT=Object.assign(window.__farmT||{},{farms:{snap:farmSnap,write:farmWrite,apply:farmApply,all:farmAll},prov:n=>openProvPop(PBYNAME[n]),ranged:r=>rangedInfo(r,computeRoute(r)),V:()=>V,PX:()=>PX2UNIT,render:()=>renderRoutes(),eg:(a,b)=>{const e=EG[a+'-'+b]||EG[b+'-'+a]; return e?{la:e.la,lb:e.lb,kmf:S.kmf}:null;},dm:()=>{const t0=performance.now(); drawMovers(); return performance.now()-t0;},rsc:o=>rsCompute(String(o)),wbev:()=>{WBE=null; return wbEvents();},aiev:()=>AIEV,aiat:(i,t,rid)=>aiAt(i,t,rid),fights:r=>computeRoute(r).legs.filter(l=>l.fight).map(l=>({p:V[l.p].n,t:(+r.sh||0)+l.t,f:l.fight})),plv:(pi,t)=>portLvl(pi,t),pinfo:()=>{PORTC=null; return portInfo();},legs:r=>computeRoute(r).legs.map(l=>[l.p,+l.t.toFixed(2)]),mir:(r,i)=>moveIntoRange(r,i),setAct:id=>{act=id;},army:i=>{showArmy(i); return $('pop').innerText;},A:()=>A,armProv:()=>armProv,UT:()=>UT,range:id=>unitRange(UT[id]),pick:pj=>{ if(DESTPICK){ const f=DESTPICK; DESTPICK=null; $('hint').hidden=true; f(pj); return true; } return false; },pi:n=>PBYNAME[n],rows:pi=>prodCompute(pi),routes:()=>routes,S:()=>S,owner:pi=>({o:P[pi].o,n:calcOwnerName(pi)})});
 farmEnsure(); farmFillList(); farmStatus(S.farmSaved?'Saved in this browser':'');
 (async()=>{ try{ if(!window.claude||!claude.use) return; const [db,us]=await Promise.all([claude.use('db'),claude.use('user')]); if(!db||!us) return; const uid=await us.id(); if(!uid) return; FDB=db; FUID=uid;
   const q=await db.collection(`data/users/${uid}`).get(); let last=null;
@@ -2171,19 +2169,7 @@ $('prodPick').addEventListener('click',()=>{ if(PRODPICK&&PHONE()) openTab('map'
     if(!unsubList){ try{ unsubList=FDB.collection(`data/users/${FUID}`).onSnapshot(q=>{ let ch=false; q.docs.forEach(d=>{ if(!d.id.startsWith('f_')) return; const x=d.data()||{}; const id=d.id.slice(2); if(!FREM[id]||FREM[id].saved!==x.saved||FREM[id].name!==x.name){ FREM[id]={name:x.name,saved:x.saved||0}; ch=true; } }); if(ch) try{ farmFillList(); }catch(e){} }); }catch(e){} }
     if(watched===S.farmId) return; if(unsub){ try{ unsub(); }catch(e){} unsub=null; } watched=S.farmId; if(!watched) return;
     try{ unsub=FDB.doc(`data/users/${FUID}/f_${watched}`).onSnapshot(d=>{ if(!d.exists) return; const x=d.data()||{}; if(x.by===CLIENT_ID) return; if((x.saved||0)<=(S.farmSaved||0)+1) return; if(watched!==S.farmId) return;
-        LIVEQ={id:watched,x}; LIVESINCE=LIVESINCE||Date.now(); liveTry(); }); }catch(e){} },1500);
-  /* a teammate's change waits while you are busy (typing, clicking, a pop-up open, your own change not yet saved),
-     so it never throws away what you are doing; it is applied as soon as you pause */
-  var LIVEQ=null, LIVESINCE=0, LASTUI=0;
-  ['pointerdown','keydown','input','wheel'].forEach(ev=>window.addEventListener(ev,()=>{ LASTUI=Date.now(); },true));
-  const busy=()=>{ const ae=document.activeElement; const typing=ae&&/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='range';
-    if(FPEND||CALCPEND||typing||routing||PLACING) return true; const wait=Date.now()-LIVESINCE;
-    if(Date.now()-LASTUI<2500&&wait<30000) return true; if(!$('pop').hidden&&wait<20000) return true; return false; };
-  function liveTry(){ if(!LIVEQ) return; const {id,x}=LIVEQ; if(id!==S.farmId||(x.saved||0)<=(S.farmSaved||0)+1){ LIVEQ=null; LIVESINCE=0; return; }
-    if(busy()){ farmStatus('A teammate changed this farm · updates when you pause'); return; }
-    LIVEQ=null; LIVESINCE=0;
-    try{ const L=farmLocal(); L[id]={name:x.name,saved:x.saved,json:x.json}; store.set('farms',L); farmApply(id,x.name,JSON.parse(x.json)); S.farmSaved=x.saved; store.set('settings',S); farmStatus('Updated by a teammate · '+new Date(x.saved).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }catch(e){} }
-  setInterval(liveTry,700); }
+        try{ const L=farmLocal(); L[watched]={name:x.name,saved:x.saved,json:x.json}; store.set('farms',L); farmApply(watched,x.name,JSON.parse(x.json)); S.farmSaved=x.saved; farmStatus('Updated by a teammate · '+new Date(x.saved).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})); }catch(e){} }); }catch(e){} },1500); }
 /* a tap that opens a pop-up must not also 'click' a button that ends up under the finger (ghost click) */
 { const pop=$('pop'); let shownAt=0; let wasHidden=pop.hidden; new MutationObserver(()=>{ if(wasHidden&&!pop.hidden) shownAt=performance.now(); wasHidden=pop.hidden; }).observe(pop,{attributes:true,attributeFilter:['hidden']});   /* only when it opens, not on every content change */
   pop.addEventListener('click',e=>{ if(performance.now()-shownAt<350){ e.stopPropagation(); e.preventDefault(); } },true); }
@@ -2267,11 +2253,6 @@ $('ordCopy').onclick=()=>{ const list=$('ordList')._list||[]; const txt=list.map
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(ok,()=>fallback()); else fallback();
   function fallback(){ const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); ok(); }catch(e){} ta.remove(); } };
 { const _rr=renderRoutes; renderRoutes=function(){ const v=_rr.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } if(RSDIRTY){ RSDIRTY=false; try{ save(); renderRS(); renderWB(); }catch(e){} } return v; }; }
-/* one redraw per action: several renderRoutes() calls in the same click/change are merged into one, run right after the handler (before the screen is drawn) */
-{ const core=renderRoutes; let pend=false, inRR=false, again=0;
-  const flush=()=>{ if(!pend||inRR) return; pend=false; inRR=true; try{ core(); } finally{ inRR=false; } if(pend&&again++<2) flush(); else { pend=false; again=0; } };
-  renderRoutes=function(){ if(BOOTING) return core.apply(this,arguments); pend=true; if(!inRR) queueMicrotask(flush); };
-  window.__rrFlush=flush; const sa=showArmy; showArmy=function(){ flush(); return sa.apply(this,arguments); }; }
 { const _rp=renderProd; renderProd=function(){ const v=_rp.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } if(RSDIRTY){ RSDIRTY=false; try{ save(); renderRS(); renderWB(); }catch(e){} } return v; }; }
 { const _rs=renderRS; renderRS=function(){ const v=_rs.apply(this,arguments); try{ renderOrders(); }catch(e){ console.warn('orders',e); } return v; }; }
 setTimeout(()=>{ try{ renderOrders(); }catch(e){} },0);
