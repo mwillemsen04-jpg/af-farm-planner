@@ -1,0 +1,20 @@
+# Render Blueprint. The backend code lives in the backend/ subfolder.
+# On render.com: New + -> Blueprint -> this repo -> it reads this file.
+# Then fill the three values below (Render asks for them), and Create.
+services:
+  - type: web
+    name: af-farm-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: false        # planner updates in this repo won't restart the backend
+    envVars:
+      - key: CLAN_PASSWORD
+        sync: false          # the password your clan types once
+      - key: ALLOWED_ORIGIN
+        sync: false          # https://mwillemsen04-jpg.github.io
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false          # the service-account JSON (one line) from Firebase
