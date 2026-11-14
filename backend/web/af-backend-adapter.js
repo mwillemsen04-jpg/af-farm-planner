@@ -119,10 +119,10 @@
     setTimeout(function () { inp.focus(); }, 50);
     ov.querySelector('form').addEventListener('submit', function (e) {
       e.preventDefault(); err.textContent = '';
-      var v = inp.value; setPw(v);
+      var v = inp.value;
       fetch(BASE + '/api/check', { headers: { 'Authorization': 'Bearer ' + v } })
         .then(function (r) {
-          if (r.ok) { ov.remove(); loginOpen = false; location.reload(); }
+          if (r.ok) { setPw(v); ov.remove(); loginOpen = false; location.reload(); }
           else { err.textContent = 'Wrong password'; }
         })
         .catch(function () { err.textContent = 'Cannot reach the server'; });
