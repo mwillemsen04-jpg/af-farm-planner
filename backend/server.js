@@ -59,6 +59,7 @@ function cleanPath(p) {
   if (p.indexOf('..') !== -1) return null;
   if (p === 'data/pub') return p;
   if (/^data\/users\/[A-Za-z0-9_-]+(\/[A-Za-z0-9_-]+)*$/.test(p)) return p;
+  if (/^ava\/[A-Za-z0-9_-]+$/.test(p)) return p; // AVA viewer: ava/overview, ava/page_<id>, ava/map_<id>, ava/index
   return null;
 }
 
@@ -80,7 +81,7 @@ function wrap(fn) {
 
 // --- routes ----------------------------------------------------------------
 
-app.get('/healthz', (req, res) => res.json({ ok: true, store: store.kind, build: 'cors-open-1' }));
+app.get('/healthz', (req, res) => res.json({ ok: true, store: store.kind, build: 'ava-1' }));
 
 // Is the typed password correct? (used by the login box in the browser)
 app.get('/api/check', auth, (req, res) => res.json({ ok: true }));
@@ -123,6 +124,58 @@ app.get('/api/collection/*', auth, wrap(async (req, res) => {
   const path = cleanPath(req.params[0]);
   if (!path) return res.status(400).json({ error: 'bad path' });
   res.json({ docs: await store.listCollection(path) });
+}));
+
+// --- AVA maps viewer -------------------------------------------------------
+// The map images and pages live in the database (not public on GitHub) and are
+// served here, behind the same clan password. The upload script fills these in.
+const avaId = s => /^[0-9A-Za-z_-]{1,40}$/.test(String(s || ''));
+
+// The list of games (JSON) for the overview.
+app.get('/api/ava/index', auth, wrap(async (req, res) => {
+  const d = await store.getDoc('ava/index');
+  res.json(d.exists ? d.data : { games: [] });
+}));
+
+// Pages can be big (the map is embedded), so the upload script may split them
+// into numbered chunks. Reassemble a page that is either {html} or {chunks:N}.
+async function avaHtml(name) {
+  const d = await store.getDoc(name);
+  if (!d.exists) return null;
+  if (typeof d.data.html === 'string') return d.data.html;
+  if (d.data.chunks > 0) {
+    let s = '';
+    for (let i = 0; i < d.data.chunks; i++) {
+      const c = await store.getDoc(name + '_' + i);
+      s += (c.exists && c.data.part) ? c.data.part : '';
+    }
+    return s;
+  }
+  return '';
+}
+
+// A built page: the overview, or one game's page (raw HTML).
+app.get('/api/ava/overview', auth, wrap(async (req, res) => {
+  const html = await avaHtml('ava/overview');
+  if (html == null) return res.status(404).send('not uploaded yet');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(html);
+}));
+app.get('/api/ava/page/:id', auth, wrap(async (req, res) => {
+  if (!avaId(req.params.id)) return res.status(400).send('bad id');
+  const html = await avaHtml('ava/page_' + req.params.id);
+  if (html == null) return res.status(404).send('no such game');
+  res.set('Content-Type', 'text/html; charset=utf-8').send(html);
+}));
+
+// A game's map image (base.jpg), stored base64 in the database.
+app.get('/api/ava/map/:id', auth, wrap(async (req, res) => {
+  if (!avaId(req.params.id)) return res.status(400).send('bad id');
+  const d = await store.getDoc('ava/map_' + req.params.id);
+  if (!d.exists || !d.data.b64) return res.status(404).send('no map');
+  const buf = Buffer.from(d.data.b64, 'base64');
+  res.set('Content-Type', d.data.ct || 'image/jpeg');
+  res.set('Cache-Control', 'no-store');
+  res.send(buf);
 }));
 
 const PORT = process.env.PORT || 3000;
