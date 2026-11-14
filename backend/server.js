@@ -80,7 +80,7 @@ function wrap(fn) {
 
 // --- routes ----------------------------------------------------------------
 
-app.get('/healthz', (req, res) => res.json({ ok: true, store: store.kind }));
+app.get('/healthz', (req, res) => res.json({ ok: true, store: store.kind, build: 'cors-open-1' }));
 
 // Is the typed password correct? (used by the login box in the browser)
 app.get('/api/check', auth, (req, res) => res.json({ ok: true }));
