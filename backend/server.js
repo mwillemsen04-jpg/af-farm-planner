@@ -31,13 +31,11 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '3mb' }));
 
-// Only the planner's own page may call this API from a browser.
+// CORS: the clan password (Bearer token) is the real gate, and we use no
+// cookies, so reflecting any origin is safe. This avoids an ALLOWED_ORIGIN typo
+// (a trailing slash or a path) silently blocking the planner's own page.
 app.use(cors({
-  origin: function (origin, cb) {
-    if (!origin) return cb(null, true);            // curl / server-to-server
-    if (!ORIGINS.length) return cb(null, true);    // not locked down yet
-    return cb(null, ORIGINS.includes(origin));
-  },
+  origin: true,
   methods: ['GET', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
