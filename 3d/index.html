@@ -141,18 +141,19 @@ const tex=new THREE.Texture(tImg); tex.colorSpace=THREE.SRGBColorSpace; tex.anis
 const ovT=new THREE.Texture(oImg); ovT.colorSpace=THREE.SRGBColorSpace; ovT.anisotropy=tex.anisotropy; ovT.needsUpdate=true;
 const mkT=(im,srgb)=>{ const t=new THREE.Texture(im); if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=tex.anisotropy; t.needsUpdate=true; return t; };
 const maskT=mkT(mImg,false); const detT=mkT(dImg,false); detT.wrapS=detT.wrapT=THREE.RepeatWrapping;
-const uni={ uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
+const uni={ uCity:{value:new THREE.DataTexture(new Uint8Array(4),1,1)}, uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
 const landMat=new THREE.MeshStandardMaterial({map:tex,roughness:.96,metalness:0});
 const bumpT=detT.clone(); bumpT.repeat.set(W/42,H/42); bumpT.needsUpdate=true; landMat.bumpMap=bumpT; landMat.bumpScale=PHONE?.25:.35;
-landMat.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,{uOver:uni.uOver,uOvA:uni.uOvA,uMask:uni.uMask,uDet:uni.uDet,uRep:uni.uRep});
+landMat.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,{uCity:uni.uCity,uOver:uni.uOver,uOvA:uni.uOvA,uMask:uni.uMask,uDet:uni.uDet,uRep:uni.uRep});
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vHt;').replace('#include <begin_vertex>','#include <begin_vertex>\nvHt=position.y;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vHt; uniform sampler2D uOver; uniform float uOvA; uniform sampler2D uMask; uniform sampler2D uDet; uniform vec2 uRep;')
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vHt; uniform sampler2D uOver; uniform sampler2D uCity; uniform float uOvA; uniform sampler2D uMask; uniform sampler2D uDet; uniform vec2 uRep;')
     .replace('#include <map_fragment>',`#include <map_fragment>
       vec4 mk=texture2D(uMask,vMapUv);
       vec3 dA=texture2D(uDet,vMapUv*uRep).rgb, dB=texture2D(uDet,vMapUv*uRep*3.7+.37).rgb;
       float grain=mix(dA.g,dB.g,.5), canopy=dA.r*.75+dB.r*.25, rockd=dA.b*.6+dB.b*.4;
       float dd=mix(grain,canopy,clamp(mk.r*1.3,0.,1.)); dd=mix(dd,rockd,clamp(mk.g*1.2,0.,1.)); dd=mix(dd,.5+(grain-.5)*.35,mk.b);
       diffuseColor.rgb*=mix(1.,.62+.76*dd,.85*smoothstep(.05,.35,vHt));
+      vec4 cg=texture2D(uCity,vMapUv); diffuseColor.rgb=mix(diffuseColor.rgb, cg.rgb*(.86+.28*grain), cg.a);
       vec4 ov=texture2D(uOver,vMapUv);
       float line=smoothstep(.62,.92,ov.a);                       // routes, borders, dots
       float fillA=ov.a*(1.-line)*1.45;                            // team areas: soft tint
@@ -352,39 +353,42 @@ const HCL=[2,2.8,3.6,4.4];
 const facM=new THREE.MeshStandardMaterial({map:winT,roughness:.75,metalness:.05});
 const wallM=new THREE.MeshStandardMaterial({roughness:.9,metalness:0});
 const roofM=new THREE.MeshStandardMaterial({roughness:.8,metalness:0,flatShading:true});
-const roadM=new THREE.MeshStandardMaterial({color:0x3b3a38,roughness:1,polygonOffset:true,polygonOffsetFactor:-2});
 const mkI=(g,m,n,sh=true)=>{ const I=new THREE.InstancedMesh(g,m,Math.max(1,n)); I.castShadow=sh; I.receiveShadow=true; I.frustumCulled=false; cityG.add(I); return I; };
 const byCls=HCL.map(()=>[]); for(const b of CITY.block){ let k=0; while(k<HCL.length-1&&b.h>(HCL[k]+HCL[k+1])/2) k++; byCls[k].push(b); }
 const blockI=HCL.map((h,k)=>mkI(facadeBox(Math.max(1,Math.round(h/FLOOR))),facM,byCls[k].length));
 const flatRoofI=mkI(gableG,roofM,CITY.block.length);
 const houseI=mkI(boxG,wallM,CITY.house.length), gableI=mkI(gableG,roofM,CITY.house.length);
 const nCh=CITY.church.length; const naveI=mkI(boxG,wallM,nCh), naveRoofI=mkI(gableG,roofM,nCh), towerI=mkI(boxG,wallM,nCh), spI=mkI(spireG,roofM,nCh);
-const roadI=mkI(boxG,roadM,CITY.road.length,false);
 const facI=mkI(boxG,wallM,CITY.fac.length), sawI=mkI(gableG,roofM,CITY.fac.length*3);
 const chimG=new THREE.CylinderGeometry(.22,.32,1,10); chimG.translate(0,.5,0); const nChm=CITY.fac.filter(f=>f.ch).length; const chimI=mkI(chimG,wallM,nChm);
 const drumG=new THREE.CylinderGeometry(1,1,1,20); drumG.translate(0,.5,0); const domeG=new THREE.SphereGeometry(1,20,10,0,Math.PI*2,0,Math.PI/2);
 const nDm=CITY.dome.length; const drumI=mkI(drumG,wallM,nDm), domeI=mkI(domeG,roofM,nDm), baseI=mkI(boxG,wallM,nDm);
-const lotM=new THREE.MeshStandardMaterial({roughness:1,polygonOffset:true,polygonOffsetFactor:-1}); const lotI=mkI(boxG,lotM,CITY.lot.length,false);
 function setI(I,i,x,y,z,ry,sx,sy,sz,col){ dm.position.set(x,y,z); dm.rotation.set(0,-ry,0); dm.scale.set(sx,sy,sz); dm.updateMatrix(); I.setMatrixAt(i,dm.matrix); if(col) I.setColorAt(i,col); }
+function gr(x,y,r){ let lo=1e9,hi=-1e9; for(const [ox,oy] of [[0,0],[r,0],[-r,0],[0,r],[0,-r]]){ const v=hAt(x+ox,y+oy); if(v<lo) lo=v; if(v>hi) hi=v; } return [lo,hi]; }
 function placeCity(){
-  HCL.forEach((hc,k)=>byCls[k].forEach((b,i)=>{ const g=hAt(b.x,b.y)-.25; if(b.c<.22) tc.setHSL(.03,.42,.52); else if(b.c<.42) tc.setHSL(.10,.12,.70); else if(b.c<.75) tc.setHSL(.11,.38,.76); else tc.setHSL(.08,.28,.84);
-    setI(blockI[k],i,b.x,g,b.y,b.a,b.w,b.h,b.d,tc); }));
-  let fi=0; HCL.forEach((hc,k)=>byCls[k].forEach(b=>{ const g=hAt(b.x,b.y)-.25; const sl=(b.c*7)%1<.55; tc.setHSL(sl?.6:.025, sl?.10:.55, sl?.30+b.c*.06:.34+b.c*.08); const ridge=b.w>b.d; setI(flatRoofI,fi++,b.x,g+b.h,b.y,b.a+(ridge?Math.PI/2:0),ridge?b.d*1.04:b.w*1.04,.75,ridge?b.w*1.04:b.d*1.04,tc); }));
-  CITY.house.forEach((h,i)=>{ const g=hAt(h.x,h.y)-.15; tc.setHSL(.10+h.c*.05,.25+h.c*.25,.78+h.c*.12); setI(houseI,i,h.x,g,h.y,h.a,h.w,h.h,h.d,tc);
+  HCL.forEach((hc,k)=>byCls[k].forEach((b,i)=>{ const [lo,hi]=gr(b.x,b.y,Math.max(b.w,b.d)*.55); const g=lo-.35; b.top=hi+b.h; if(b.c<.22) tc.setHSL(.03,.42,.52); else if(b.c<.42) tc.setHSL(.10,.12,.70); else if(b.c<.75) tc.setHSL(.11,.38,.76); else tc.setHSL(.08,.28,.84);
+    setI(blockI[k],i,b.x,g,b.y,b.a,b.w,b.top-g,b.d,tc); }));
+  let fi=0; HCL.forEach((hc,k)=>byCls[k].forEach(b=>{ const g=b.top-b.h; const sl=(b.c*7)%1<.55; tc.setHSL(sl?.6:.025, sl?.10:.55, sl?.30+b.c*.06:.34+b.c*.08); const ridge=b.w>b.d; setI(flatRoofI,fi++,b.x,g+b.h,b.y,b.a+(ridge?Math.PI/2:0),ridge?b.d*1.04:b.w*1.04,.75,ridge?b.w*1.04:b.d*1.04,tc); }));
+  CITY.house.forEach((h,i)=>{ const [lo,hi]=gr(h.x,h.y,Math.max(h.w,h.d)*.55), g=hi; tc.setHSL(.10+h.c*.05,.25+h.c*.25,.78+h.c*.12); setI(houseI,i,h.x,lo-.3,h.y,h.a,h.w,h.h+hi-lo+.3,h.d,tc);
     const north=h.y<H*.38; tc.setHSL(north&&h.rc<.5?.6:.02+h.rc*.035, north&&h.rc<.5?.08:.62, north&&h.rc<.5?.28:.36+h.rc*.1);
     setI(gableI,i,h.x,g+h.h,h.y,h.a,h.w*1.12,.55+h.w*.35,h.d*1.08,tc); });
-  CITY.church.forEach((c,i)=>{ const g=hAt(c.x,c.y)-.2, s=c.s, ca=Math.cos(c.a), sa=Math.sin(c.a);
-    tc.setHSL(.11,.22,.82); setI(naveI,i,c.x,g,c.y,c.a,1.2*s,1.5*s,2.8*s,tc); setI(naveRoofI,i,c.x,g+1.5*s,c.y,c.a,1.3*s,1.0*s,2.85*s,tc.setHSL(.03,.45,.33));
-    const tx=c.x-sa*1.6*s, ty=c.y+ca*1.6*s; tc.setHSL(.11,.2,.80); setI(towerI,i,tx,g,ty,c.a,.8*s,3.6*s,.8*s,tc); setI(spI,i,tx,g+3.6*s,ty,c.a,.95*s,2.6*s,.95*s,tc.setHSL(.47,.25,.36)); });
-  CITY.lot.forEach((l,i)=>{ const g=hAt(l.x,l.y)-1.1; tc.setHSL(.08,.10+l.c*.05,.30+l.c*.05); setI(lotI,i,l.x,g,l.y,l.a,l.s*1.01,1.18,l.s*1.01,tc); });
-  let si=0, chi=0; CITY.fac.forEach((f,i)=>{ const g=hAt(f.x,f.y)-.2; tc.setHSL(.025,.45,.40+f.c*.08); setI(facI,i,f.x,g,f.y,f.a,f.w,f.h,f.d,tc);
+  CITY.church.forEach((c,i)=>{ const [lo,hi]=gr(c.x,c.y,2.2*c.s), g=hi-.05, s=c.s, ca=Math.cos(c.a), sa=Math.sin(c.a);
+    tc.setHSL(.11,.22,.82); setI(naveI,i,c.x,lo-.3,c.y,c.a,1.2*s,1.5*s+g-lo+.3,2.8*s,tc); setI(naveRoofI,i,c.x,g+1.5*s,c.y,c.a,1.3*s,1.0*s,2.85*s,tc.setHSL(.03,.45,.33));
+    const tx=c.x-sa*1.6*s, ty=c.y+ca*1.6*s; tc.setHSL(.11,.2,.80); setI(towerI,i,tx,lo-.3,ty,c.a,.8*s,3.6*s+g-lo+.3,.8*s,tc); setI(spI,i,tx,g+3.6*s,ty,c.a,.95*s,2.6*s,.95*s,tc.setHSL(.47,.25,.36)); });
+  let si=0, chi=0; CITY.fac.forEach((f,i)=>{ const [lo,hi]=gr(f.x,f.y,f.w*.55), g=hi; tc.setHSL(.025,.45,.40+f.c*.08); setI(facI,i,f.x,lo-.3,f.y,f.a,f.w,f.h+hi-lo+.3,f.d,tc);
     const ca=Math.cos(f.a), sa=Math.sin(f.a); for(let k=0;k<3;k++){ const o=(k-1)*f.w/3; tc.setHSL(.58,.08,.32); setI(sawI,si++,f.x+ca*o,g+f.h,f.y+sa*o,f.a,f.w/3*.98,.55,f.d*1.02,tc); }
     if(f.ch){ const o=f.w*.42; tc.setHSL(.02,.5,.34); setI(chimI,chi++,f.x+ca*o,g,f.y+sa*o,0,1,f.h+f.chh,1,tc); } });
   CITY.dome.forEach((q,i)=>{ const g=hAt(q.x,q.y)-.2; tc.setHSL(.11,.18,.84); setI(baseI,i,q.x,g,q.y,q.a,2.4,1.9,2.4,tc); setI(drumI,i,q.x,g+1.9,q.y,0,.95,.9,.95,tc);
     tc.setHSL(.45,.35,.45); setI(domeI,i,q.x,g+2.8,q.y,0,.95,1.15,.95,tc); });
-  CITY.road.forEach((r,i)=>{ const g=hAt(r.x,r.y)-1.0; setI(roadI,i,r.x,g,r.y,r.a,r.along?r.wid:r.len*1.04,1.12,r.along?r.len*1.04:r.wid); });
   for(const I of cityG.children){ I.instanceMatrix.needsUpdate=true; if(I.instanceColor) I.instanceColor.needsUpdate=true; } }
 placeCity();
+{ const CW=PHONE?2048:4096, CH=Math.round(CW*H/W), k=CW/W; const cc=document.createElement('canvas'); cc.width=CW; cc.height=CH; const x=cc.getContext('2d');
+  for(const t of towns){ const g=x.createRadialGradient(t.x*k,t.y*k,0,t.x*k,t.y*k,t.r*1.25*k); g.addColorStop(0,'rgba(176,164,142,.8)'); g.addColorStop(.7,'rgba(176,164,142,.55)'); g.addColorStop(1,'rgba(176,164,142,0)');
+    x.fillStyle=g; x.beginPath(); x.arc(t.x*k,t.y*k,t.r*1.25*k,0,7); x.fill(); }
+  for(const l of CITY.lot){ x.save(); x.translate(l.x*k,l.y*k); x.rotate(l.a); const v=150+l.c*22|0; x.fillStyle=`rgba(${v+18},${v+8},${v-8},.9)`; const q=l.s*k*.92; x.fillRect(-q/2,-q/2,q,q); x.restore(); }
+  x.fillStyle='rgba(78,74,68,.95)';
+  for(const r of CITY.road){ x.save(); x.translate(r.x*k,r.y*k); x.rotate(r.a); const L=r.len*1.08*k, Wd=Math.max(1.2,r.wid*k); if(r.along) x.fillRect(-Wd/2,-L/2,Wd,L); else x.fillRect(-L/2,-Wd/2,L,Wd); x.restore(); }
+  const ct=new THREE.CanvasTexture(cc); ct.colorSpace=THREE.SRGBColorSpace; ct.anisotropy=tex.anisotropy; uni.uCity.value=ct; }
 for(const q of LMS){ let lo=hAt(q.x,q.y); for(let k=0;k<8;k++){ const a=k/8*6.283; lo=Math.min(lo,hAt(q.x+Math.cos(a)*q.r*.6,q.y+Math.sin(a)*q.r*.6)); }
   q.g.position.set(q.x,Math.max(lo,.6)-.15,q.y); cityG.add(q.g); }
 
