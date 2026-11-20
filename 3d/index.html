@@ -35,6 +35,7 @@ canvas{display:block;outline:none}
 <div id="vig"></div><div id="err"></div>
 <div id="chip"><b>AF · 3D map</b><span id="chipSub">Live view of your farm</span></div>
 <div id="ctl">
+  <button id="bHD" title="Graphics: high (ambient occlusion, bloom, depth of field) / fast" aria-pressed="false" style="font:800 11px system-ui">HD</button>
   <button id="bTeam" title="Teams &amp; routes: full / soft / off" aria-pressed="true"><svg viewBox="-10 -10 20 20" width="20" height="20"><path d="M-6 9V-9M-6 -8h11l-2.5 4 2.5 4h-11" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg></button>
   <button id="bTree" title="Trees on/off" aria-pressed="true"><svg viewBox="-10 -10 20 20" width="20" height="20"><path d="M0 -9 L6 1 H2.5 L7 7 H-7 L-2.5 1 H-6 Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M0 7V10" stroke="currentColor" stroke-width="1.8"/></svg></button>
   <button id="bCity" title="Towns &amp; cities on/off" aria-pressed="true"><svg viewBox="-10 -10 20 20" width="20" height="20"><path d="M-8 8V0h5v8M-3 8V-6h6V8M3 8V-2h5v10M-9 8h18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></button>
@@ -58,6 +59,12 @@ canvas{display:block;outline:none}
 <script type="module">
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 window.__stage='starting';
 
 const PHONE = matchMedia('(pointer:coarse)').matches || Math.min(innerWidth,innerHeight) < 700;
@@ -141,18 +148,22 @@ const tex=new THREE.Texture(tImg); tex.colorSpace=THREE.SRGBColorSpace; tex.anis
 const ovT=new THREE.Texture(oImg); ovT.colorSpace=THREE.SRGBColorSpace; ovT.anisotropy=tex.anisotropy; ovT.needsUpdate=true;
 const mkT=(im,srgb)=>{ const t=new THREE.Texture(im); if(srgb) t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=tex.anisotropy; t.needsUpdate=true; return t; };
 const maskT=mkT(mImg,false); const detT=mkT(dImg,false); detT.wrapS=detT.wrapT=THREE.RepeatWrapping;
-const uni={ uCity:{value:new THREE.DataTexture(new Uint8Array(4),1,1)}, uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
+const cloudC=document.createElement('canvas'); cloudC.width=512; cloudC.height=331; { const x=cloudC.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,512,331); let r=99; const rn=()=>((r=(r*16807)%2147483647)/2147483647);
+  for(let i=0;i<70;i++){ const cx=rn()*512, cy=rn()*331, rr=8+rn()*26; const g=x.createRadialGradient(cx,cy,0,cx,cy,rr); g.addColorStop(0,'rgba(0,0,0,.22)'); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; for(let k=0;k<4;k++){ x.beginPath(); x.arc(cx+(rn()-.5)*rr,cy+(rn()-.5)*rr*.6,rr*(.6+rn()*.5),0,7); x.fill(); } } }
+const cloudT=new THREE.CanvasTexture(cloudC);
+const uni={ uCloud:{value:cloudT}, uCity:{value:new THREE.DataTexture(new Uint8Array(4),1,1)}, uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
 const landMat=new THREE.MeshStandardMaterial({map:tex,roughness:.96,metalness:0});
 const bumpT=detT.clone(); bumpT.repeat.set(W/42,H/42); bumpT.needsUpdate=true; landMat.bumpMap=bumpT; landMat.bumpScale=PHONE?.25:.35;
-landMat.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,{uCity:uni.uCity,uOver:uni.uOver,uOvA:uni.uOvA,uMask:uni.uMask,uDet:uni.uDet,uRep:uni.uRep});
+landMat.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,{uCloud:uni.uCloud,uCity:uni.uCity,uOver:uni.uOver,uOvA:uni.uOvA,uMask:uni.uMask,uDet:uni.uDet,uRep:uni.uRep});
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vHt;').replace('#include <begin_vertex>','#include <begin_vertex>\nvHt=position.y;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vHt; uniform sampler2D uOver; uniform sampler2D uCity; uniform float uOvA; uniform sampler2D uMask; uniform sampler2D uDet; uniform vec2 uRep;')
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vHt; uniform sampler2D uOver; uniform sampler2D uCity; uniform sampler2D uCloud; uniform float uOvA; uniform sampler2D uMask; uniform sampler2D uDet; uniform vec2 uRep;')
     .replace('#include <map_fragment>',`#include <map_fragment>
       vec4 mk=texture2D(uMask,vMapUv);
       vec3 dA=texture2D(uDet,vMapUv*uRep).rgb, dB=texture2D(uDet,vMapUv*uRep*3.7+.37).rgb;
       float grain=mix(dA.g,dB.g,.5), canopy=dA.r*.75+dB.r*.25, rockd=dA.b*.6+dB.b*.4;
       float dd=mix(grain,canopy,clamp(mk.r*1.3,0.,1.)); dd=mix(dd,rockd,clamp(mk.g*1.2,0.,1.)); dd=mix(dd,.5+(grain-.5)*.35,mk.b);
       diffuseColor.rgb*=mix(1.,.62+.76*dd,.85*smoothstep(.05,.35,vHt));
+      diffuseColor.rgb*=mix(1.,texture2D(uCloud,vMapUv).r,.85);
       vec4 cg=texture2D(uCity,vMapUv); diffuseColor.rgb=mix(diffuseColor.rgb, cg.rgb*(.86+.28*grain), cg.a);
       vec4 ov=texture2D(uOver,vMapUv);
       float line=smoothstep(.62,.92,ov.a);                       // routes, borders, dots
@@ -177,7 +188,7 @@ const nC=document.createElement('canvas'); nC.width=nC.height=256; { const x=nC.
   x.putImageData(id,0,0); }
 const nT=new THREE.CanvasTexture(nC); nT.wrapS=nT.wrapT=THREE.RepeatWrapping; nT.repeat.set(26,17);
 const water=new THREE.Mesh(new THREE.PlaneGeometry(W,H), new THREE.MeshPhysicalMaterial({color:0x0b3a55,transparent:true,opacity:.26,roughness:.07,metalness:0,normalMap:nT,normalScale:new THREE.Vector2(.42,.42),clearcoat:1,clearcoatRoughness:.08,specularIntensity:1}));
-water.rotation.x=-Math.PI/2; water.position.set(W/2,.7,H/2); water.receiveShadow=true; scene.add(water);
+water.rotation.x=-Math.PI/2; water.position.set(W/2,.7,H/2); water.receiveShadow=true; water.userData.noAO=true; scene.add(water);
 
 // ---------- light ----------
 scene.add(new THREE.HemisphereLight(0xcfe4ff,0x3a3a26,.62));
@@ -433,9 +444,29 @@ $('bTop').onclick=()=>{ const t=ctl.target.clone(); const d=cam.position.distanc
   if(top) flyTo([t.x-d*.35,t.y+d*.8,t.z+d*.5],[t.x,t.y,t.z]); else flyTo([t.x,t.y+d,t.z+1],[t.x,t.y,t.z]); };
 
 // ---------- loop ----------
-addEventListener('resize',()=>{ cam.fov=fovFor(); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix(); R.setSize(innerWidth,innerHeight); mark(); });
+// ---------- high graphics: ambient occlusion, soft bloom, grading, tilt-shift depth of field ----------
+const GRADE={ uniforms:{ tDiffuse:{value:null}, res:{value:new THREE.Vector2(1,1)}, tilt:{value:0} }, vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader:`uniform sampler2D tDiffuse; uniform vec2 res; uniform float tilt; varying vec2 vUv;
+  void main(){ vec4 c=texture2D(tDiffuse,vUv); float b=tilt*smoothstep(.16,.52,abs(vUv.y-.46))*3.2;
+    if(b>.05){ vec3 a=c.rgb; float n=1.; for(int i=0;i<12;i++){ float an=float(i)*2.39996; float r=sqrt(float(i)+.5)/3.6; vec2 o=vec2(cos(an),sin(an))*r*b/res; a+=texture2D(tDiffuse,vUv+o).rgb; n+=1.; } c.rgb=a/n; }
+    float l=dot(c.rgb,vec3(.2126,.7152,.0722)); c.rgb=mix(vec3(l),c.rgb,1.12); c.rgb=pow(max(c.rgb,0.),vec3(1.04));
+    vec2 q=vUv-.5; c.rgb*=1.-dot(q,q)*.55; gl_FragColor=c; }` };
+let HQ=!PHONE; try{ const v=localStorage.getItem('af3d_hq'); if(v!=null) HQ=v==='1'; }catch(e){}
+let comp=null, aoP=null, grP=null, aoR=-1;
+function mkComp(){ const rt=new THREE.WebGLRenderTarget(innerWidth,innerHeight,{type:THREE.HalfFloatType,samples:4});
+  comp=new EffectComposer(R,rt); comp.setPixelRatio(R.getPixelRatio()); comp.setSize(innerWidth,innerHeight);
+  comp.addPass(new RenderPass(scene,cam));
+  aoP=new GTAOPass(scene,cam,innerWidth,innerHeight); aoP.blendIntensity=.85; aoP.updatePdMaterial({lumaPhi:10,depthPhi:2,normalPhi:3,radius:4,rings:2,samples:8}); comp.addPass(aoP);
+  comp.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),.22,.55,.9));
+  grP=new ShaderPass(GRADE); comp.addPass(grP); comp.addPass(new OutputPass()); aoR=-1; }
+function setHQ(v){ HQ=v; try{ localStorage.setItem('af3d_hq',v?'1':'0'); }catch(e){} $('bHD').setAttribute('aria-pressed',v); $('bHD').style.opacity=v?'':'.55'; if(v&&!comp){ try{ mkComp(); }catch(e){ console.warn(e); comp=null; HQ=false; } } mark(); }
+$('bHD').onclick=()=>setHQ(!HQ);
+function hqUpdate(){ if(!comp) return; const d=cam.position.distanceTo(ctl.target); const r=Math.max(2.5,Math.min(60,d*.03));
+  if(Math.abs(r-aoR)>aoR*.08){ aoR=r; aoP.updateGtaoMaterial({radius:r,distanceExponent:1.2,thickness:Math.max(1,r*.6),scale:1,samples:PHONE?8:12}); }
+  const pol=ctl.getPolarAngle(); grP.uniforms.tilt.value=Math.max(0,Math.min(1,(pol-.45)/.75))*Math.max(.25,Math.min(1,320/d)); grP.uniforms.res.value.set(innerWidth*R.getPixelRatio(),innerHeight*R.getPixelRatio()); }
+addEventListener('resize',()=>{ if(comp){ comp.setSize(innerWidth,innerHeight); aoP&&aoP.setSize(innerWidth,innerHeight); } cam.fov=fovFor(); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix(); R.setSize(innerWidth,innerHeight); mark(); });
 const tmp=new THREE.Vector3(); const clock=new THREE.Clock();
-let dirty=3; ctl.addEventListener('change',()=>dirty=2); const mark=()=>dirty=2;
+let dirty=3; ctl.addEventListener('change',()=>dirty=2); queueMicrotask(()=>setHQ(HQ)); const mark=()=>dirty=2;
 function frame(){ requestAnimationFrame(frame); const now=performance.now(), dt=clock.getDelta();
   if(fly){ const k=Math.min(1,(now-fly.s)/900), e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2; cam.position.lerpVectors(fly.p0,fly.p1,e); ctl.target.lerpVectors(fly.t0,fly.t1,e); if(k>=1) fly=null; }
   ctl.update(); fitShadow(); if(fly) dirty=2; if(movePins(dt)) dirty=2; if(!dirty) return; dirty--;
@@ -444,7 +475,7 @@ function frame(){ requestAnimationFrame(frame); const now=performance.now(), dt=
     for(const l of labs){ tmp.copy(l.sp.position); const d=tmp.distanceTo(cam.position); const lim=l.it.big?Math.max(700,camD*1.35):Math.min(camD*.9,520);
       const o=Math.max(0,Math.min(1,(lim-d)/(lim*.25))); l.sp.material.opacity=o; l.sp.visible=o>.02; const s=(l.it.big?.17:.13)*LK*Math.max(1,Math.min(1.9,d/650)); l.sp.scale.set(l.it.px*s,LH*s,1); } }
   if(unitG.visible){ for(const p of pins){ const d=p.sp.position.distanceTo(cam.position), s=19*PK*Math.max(1,Math.min(2.2,d/800)); p.sp.scale.set(s,s,1); } }
-  R.render(scene,cam); window.FRAMES=(window.FRAMES||0)+1; }
+  if(HQ&&comp){ hqUpdate(); comp.render(); } else R.render(scene,cam); window.FRAMES=(window.FRAMES||0)+1; }
 step(); frame();
 $('load').style.opacity=0; setTimeout(()=>$('load').remove(),700);
 setTimeout(()=>$('hint').style.opacity=0,6000);
