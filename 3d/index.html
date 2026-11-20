@@ -84,11 +84,11 @@ const maxTex=R.capabilities.maxTextureSize;
 
 const scene=new THREE.Scene();
 const skyC=document.createElement('canvas'); skyC.width=4; skyC.height=512; { const x=skyC.getContext('2d'); const g=x.createLinearGradient(0,0,0,512);
-  g.addColorStop(0,'#050b12'); g.addColorStop(.42,'#10283a'); g.addColorStop(.62,'#2b5267'); g.addColorStop(1,'#122a38'); x.fillStyle=g; x.fillRect(0,0,4,512); }
+  g.addColorStop(0,'#0a1a2c'); g.addColorStop(.30,'#1d4766'); g.addColorStop(.47,'#6f9bb5'); g.addColorStop(.52,'#d9c7a6'); g.addColorStop(.56,'#6f8a95'); g.addColorStop(1,'#1a3240'); x.fillStyle=g; x.fillRect(0,0,4,512); }
 const sky=new THREE.CanvasTexture(skyC); sky.colorSpace=THREE.SRGBColorSpace; scene.background=sky;
 const envT=new THREE.CanvasTexture(skyC); envT.mapping=THREE.EquirectangularReflectionMapping; envT.colorSpace=THREE.SRGBColorSpace;
-scene.environment=new THREE.PMREMGenerator(R).fromEquirectangular(envT).texture; scene.environmentIntensity=0.35;
-scene.fog=new THREE.Fog(0x132c3d,2800,6500);
+scene.environment=new THREE.PMREMGenerator(R).fromEquirectangular(envT).texture; scene.environmentIntensity=0.45;
+scene.fog=new THREE.Fog(0x5d7f90,2600,7000);
 
 const fovFor=()=>innerWidth<innerHeight?52:36; const cam=new THREE.PerspectiveCamera(fovFor(),innerWidth/innerHeight,4,12000);
 
@@ -119,6 +119,12 @@ const hp=hx.getImageData(0,0,hc.width,hc.height).data; const HW=hc.width, HH=hc.
 const HF=new Float32Array(HW*HH); for(let i=0;i<HW*HH;i++){ HF[i]=((hp[i*4]<<8)|hp[i*4+1])/65535*1.1-0.1; }
 const hRaw=(x,y)=>{ const fx=Math.max(0,Math.min(HW-1.001,x*HW/W)), fy=Math.max(0,Math.min(HH-1.001,y*HH/H)); const ix=fx|0, iy=fy|0, ax=fx-ix, ay=fy-iy, i=iy*HW+ix;
   return (HF[i]*(1-ax)+HF[i+1]*ax)*(1-ay)+(HF[i+HW]*(1-ax)+HF[i+HW+1]*ax)*ay; };
+// level the ground under the landmarks so they stand flat
+{ const LMN=['Paris','Rome','London','Berlin','Moscow','Leningrad','Istanbul','Cologne','Vienna','Budapest','Prague','Amsterdam','Venice','Cairo','Madrid','Lisbon'];
+  for(const l of labels){ if(!LMN.includes(l.n)) continue; const cx=l.x+(l.t===14?6.5:0), cy=l.y+(l.t===14?4.5:0), R=13, h0=Math.max(hRaw(cx,cy),.004);
+    const x0=Math.max(0,((cx-R)*HW/W)|0), x1=Math.min(HW-1,((cx+R)*HW/W)|0), y0=Math.max(0,((cy-R)*HH/H)|0), y1=Math.min(HH-1,((cy+R)*HH/H)|0);
+    for(let py=y0;py<=y1;py++) for(let px=x0;px<=x1;px++){ const d=Math.hypot(px*W/HW-cx,py*H/HH-cy); if(d>=R) continue; const i=py*HW+px; if(HF[i]<=0) continue;
+      const t=Math.min(1,Math.max(0,(R-d)/(R*.45))), w=t*t*(3-2*t); HF[i]=HF[i]*(1-w)+h0*w; } } }
 let EX=1; const hAt=(x,y)=>{ const v=hRaw(x,y); return v>0 ? v*HMAX*EX : v*HMAX; };
 
 // ---------- terrain ----------
@@ -135,6 +141,7 @@ const mkT=(im,srgb)=>{ const t=new THREE.Texture(im); if(srgb) t.colorSpace=THRE
 const maskT=mkT(mImg,false); const detT=mkT(dImg,false); detT.wrapS=detT.wrapT=THREE.RepeatWrapping;
 const uni={ uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
 const landMat=new THREE.MeshStandardMaterial({map:tex,roughness:.96,metalness:0});
+const bumpT=detT.clone(); bumpT.repeat.set(W/42,H/42); bumpT.needsUpdate=true; landMat.bumpMap=bumpT; landMat.bumpScale=PHONE?.25:.35;
 landMat.onBeforeCompile=sh=>{ Object.assign(sh.uniforms,{uOver:uni.uOver,uOvA:uni.uOvA,uMask:uni.uMask,uDet:uni.uDet,uRep:uni.uRep});
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vHt;').replace('#include <begin_vertex>','#include <begin_vertex>\nvHt=position.y;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vHt; uniform sampler2D uOver; uniform float uOvA; uniform sampler2D uMask; uniform sampler2D uDet; uniform vec2 uRep;')
@@ -166,13 +173,18 @@ const nC=document.createElement('canvas'); nC.width=nC.height=256; { const x=nC.
   for(let y=0;y<256;y++) for(let i=0;i<256;i++){ const a=hs[y*256+i], dx=hs[y*256+((i+1)&255)]-a, dy=hs[((y+1)&255)*256+i]-a; const o=(y*256+i)*4; id.data[o]=128+dx*60; id.data[o+1]=128+dy*60; id.data[o+2]=255; id.data[o+3]=255; }
   x.putImageData(id,0,0); }
 const nT=new THREE.CanvasTexture(nC); nT.wrapS=nT.wrapT=THREE.RepeatWrapping; nT.repeat.set(26,17);
-const water=new THREE.Mesh(new THREE.PlaneGeometry(W,H), new THREE.MeshPhysicalMaterial({color:0x0b3550,transparent:true,opacity:.22,roughness:.12,metalness:0,normalMap:nT,normalScale:new THREE.Vector2(.3,.3),clearcoat:.8,clearcoatRoughness:.15}));
+const water=new THREE.Mesh(new THREE.PlaneGeometry(W,H), new THREE.MeshPhysicalMaterial({color:0x0b3a55,transparent:true,opacity:.26,roughness:.07,metalness:0,normalMap:nT,normalScale:new THREE.Vector2(.42,.42),clearcoat:1,clearcoatRoughness:.08,specularIntensity:1}));
 water.rotation.x=-Math.PI/2; water.position.set(W/2,.7,H/2); water.receiveShadow=true; scene.add(water);
 
 // ---------- light ----------
-scene.add(new THREE.HemisphereLight(0xdcefff,0x2a3320,.75));
-const sun=new THREE.DirectionalLight(0xfff1dc,2.7); sun.position.set(W/2-1700,1250,H/2-1200); sun.target.position.set(W/2,0,H/2); scene.add(sun.target);
+scene.add(new THREE.HemisphereLight(0xcfe4ff,0x3a3a26,.62));
+const sun=new THREE.DirectionalLight(0xffe9cc,3.0); sun.position.set(W/2-1700,1250,H/2-1200); sun.target.position.set(W/2,0,H/2); scene.add(sun.target);
 sun.castShadow=true; const SM=PHONE?1024:4096; sun.shadow.mapSize.set(SM,SM); Object.assign(sun.shadow.camera,{left:-2000,right:2000,top:1700,bottom:-1700,near:200,far:5200}); sun.shadow.bias=-.0004; sun.shadow.normalBias=1.2; scene.add(sun);
+const SUND=new THREE.Vector3(-1700,1250,-1200).normalize(); let shKey='';
+function fitShadow(){ const T=ctl.target, d=cam.position.distanceTo(T), ext=Math.max(110,Math.min(2100,d*1.15));
+  const key=Math.round(T.x/4)+','+Math.round(T.z/4)+','+Math.round(ext/4); if(key===shKey) return; shKey=key;
+  sun.target.position.set(T.x,0,T.z); sun.position.set(T.x+SUND.x*3000,SUND.y*3000,T.z+SUND.z*3000); const c=sun.shadow.camera;
+  c.left=-ext; c.right=ext; c.top=ext; c.bottom=-ext; c.near=500; c.far=6000; c.updateProjectionMatrix(); sun.shadow.normalBias=.25+ext*.0009; }
 const fill=new THREE.DirectionalLight(0x8fb8ff,.35); fill.position.set(W/2+1400,700,H/2+1200); scene.add(fill);
 
 // ---------- units as standing pins ----------
@@ -264,10 +276,13 @@ const archC=document.createElement('canvas'); archC.width=64; archC.height=64; {
   for(let r=0;r<3;r++){ const y=r*21+4; for(let i=0;i<2;i++){ const cx=i*32+16; x.beginPath(); x.moveTo(cx-9,y+17); x.lineTo(cx-9,y+8); x.arc(cx,y+8,9,Math.PI,0); x.lineTo(cx+9,y+17); x.fill(); } } }
 const archT=new THREE.CanvasTexture(archC); archT.wrapS=archT.wrapT=THREE.RepeatWrapping; archT.repeat.set(14,1); archT.colorSpace=THREE.SRGBColorSpace;
 const LMS=labels.filter(l=>LMB[l.n]).map(l=>({n:l.n,x:l.x+(l.t===14?6.5:0),y:l.y+(l.t===14?4.5:0)}));
+const LMSC=1.4;
+for(const q of LMS){ const g=new THREE.Group(); try{ LMB[q.n](g); }catch(e){ console.warn('landmark',q.n,e); } g.scale.setScalar(LMSC); g.updateMatrixWorld(true);
+  const bb=new THREE.Box3().setFromObject(g); q.r=Math.max(3,Math.hypot(Math.max(-bb.min.x,bb.max.x),Math.max(-bb.min.z,bb.max.z)))+1.0; q.g=g; }
 // ---------- towns & cities ----------
 const cityG=new THREE.Group(); scene.add(cityG);
 const towns=labels.filter(L=>L.t===14&&hRaw(L.x,L.y)>.003).map(L=>({x:L.x,y:L.y,big:L.t===14,r:L.t===14?12:5}));
-const nearTown=(x,y)=>{ for(const q of LMS){ if((x-q.x)**2+(y-q.y)**2<144) return true; } for(const t of towns){ const dx=x-t.x, dy=y-t.y; if(dx*dx+dy*dy<(t.r+3)*(t.r+3)) return true; } return false; };
+const nearTown=(x,y)=>{ for(const q of LMS){ if((x-q.x)**2+(y-q.y)**2<(q.r+2.5)**2) return true; } for(const t of towns){ const dx=x-t.x, dy=y-t.y; if(dx*dx+dy*dy<(t.r+3)*(t.r+3)) return true; } return false; };
 const treeG=new THREE.Group(); scene.add(treeG);
 const NT=PHONE?22000:110000; let rs=12345; const rnd=()=>((rs=(rs*16807)%2147483647)/2147483647);
 const spots=[];
@@ -276,6 +291,8 @@ for(let a=0;a<NT*14&&spots.length<NT;a++){ const x=rnd()*W, y=rnd()*H; const f=m
 const conG=new THREE.ConeGeometry(1,1,6,1); conG.translate(0,.5,0);
 const decG=new THREE.IcosahedronGeometry(1,1); decG.scale(1,.85,1); decG.translate(0,1.05,0);
 const tMat=new THREE.MeshStandardMaterial({roughness:.95,metalness:0,flatShading:true});
+tMat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vLy;').replace('#include <begin_vertex>','#include <begin_vertex>\nvLy=position.y;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vLy;').replace('#include <color_fragment>','#include <color_fragment>\n diffuseColor.rgb*=mix(.48,1.18,smoothstep(.0,1.15,vLy));'); };
 const nCon=spots.filter(s=>s[2]<.55).length;
 const conI=new THREE.InstancedMesh(conG,tMat,Math.max(1,nCon)), decI=new THREE.InstancedMesh(decG,tMat,Math.max(1,spots.length-nCon));
 for(const m of [conI,decI]){ m.castShadow=!PHONE; m.receiveShadow=true; m.frustumCulled=false; treeG.add(m); }
@@ -299,10 +316,10 @@ const CITY={house:[],block:[],church:[],road:[],lot:[],fac:[],dome:[]}; { let rs
     for(let i=-n;i<=n;i++) for(let j=-n;j<=n;j++){ const u=i*cell, v=j*cell, d=Math.hypot(u,v)/R; if(d>1) continue;
       const [x,y]=W2(u,v); if(hRaw(x,y)<.003) continue;
       { const hc=[hRaw(x-cell*.5,y-cell*.5),hRaw(x+cell*.5,y-cell*.5),hRaw(x-cell*.5,y+cell*.5),hRaw(x+cell*.5,y+cell*.5)]; if((Math.max(...hc)-Math.min(...hc))*HMAX<.9) CITY.lot.push({x,y,a,s:cell,c:r2()}); }
-      if(LMS.some(q=>Math.hypot(q.x-x,q.y-y)<5.6)) continue;
+      if(LMS.some(q=>Math.hypot(q.x-x,q.y-y)<q.r+cell*.55)) continue;
       if(street(i,j)){ if(!PHONE||t.big) CITY.road.push({x,y,a,len:cell*1.02,wid:t.big?.75:.55,along:(t.big?i%3===0:i===0)}); continue; }
       if(!churchDone&&Math.abs(i)<=2&&Math.abs(j)<=2&&d<.35){ churchDone=true; CITY.church.push({x,y,a,s:t.big?1.35:.9}); continue; }
-      if(t.big&&!CITY.dome.some(q=>q.t===t)&&d<.45&&d>.2&&r2()<.5){ CITY.dome.push({x,y,a,t}); continue; }
+      if(false){ CITY.dome.push({x,y,a,t}); continue; }
       if(r2()<Math.pow(d,3)*.6) continue;
       const core=1-d, jx=(r2()-.5)*cell*.12, jy=(r2()-.5)*cell*.12, [bx,by]=W2(u+jx,v+jy), turn=r2()<.5?0:Math.PI/2;
       if(t.big&&d>.62&&r2()<.2){ CITY.fac.push({x:bx,y:by,a:a+turn,w:cell*.86,d:cell*.58,h:1.1+r2()*.5,c:r2(),ch:r2()<.75,chh:3.5+r2()*3}); }
@@ -362,7 +379,8 @@ function placeCity(){
   CITY.road.forEach((r,i)=>{ const g=hAt(r.x,r.y)-1.0; setI(roadI,i,r.x,g,r.y,r.a,r.along?r.wid:r.len*1.04,1.12,r.along?r.len*1.04:r.wid); });
   for(const I of cityG.children){ I.instanceMatrix.needsUpdate=true; if(I.instanceColor) I.instanceColor.needsUpdate=true; } }
 placeCity();
-for(const q of LMS){ const g=new THREE.Group(); try{ LMB[q.n](g); }catch(e){ console.warn('landmark',q.n,e); } g.position.set(q.x,hAt(q.x,q.y)-.15,q.y); g.scale.setScalar(1.7); cityG.add(g); }
+for(const q of LMS){ let lo=hAt(q.x,q.y); for(let k=0;k<8;k++){ const a=k/8*6.283; lo=Math.min(lo,hAt(q.x+Math.cos(a)*q.r*.6,q.y+Math.sin(a)*q.r*.6)); }
+  q.g.position.set(q.x,Math.max(lo,.6)-.15,q.y); cityG.add(q.g); }
 
 // ---------- floating names (one texture atlas) ----------
 const labG=new THREE.Group(); scene.add(labG);
@@ -410,7 +428,7 @@ const tmp=new THREE.Vector3(); const clock=new THREE.Clock();
 let dirty=3; ctl.addEventListener('change',()=>dirty=2); const mark=()=>dirty=2;
 function frame(){ requestAnimationFrame(frame); const now=performance.now(), dt=clock.getDelta();
   if(fly){ const k=Math.min(1,(now-fly.s)/900), e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2; cam.position.lerpVectors(fly.p0,fly.p1,e); ctl.target.lerpVectors(fly.t0,fly.t1,e); if(k>=1) fly=null; }
-  ctl.update(); if(fly) dirty=2; if(movePins(dt)) dirty=2; if(!dirty) return; dirty--;
+  ctl.update(); fitShadow(); if(fly) dirty=2; if(movePins(dt)) dirty=2; if(!dirty) return; dirty--;
   nT.offset.x+=dt*.012; nT.offset.y+=dt*.007;
   if(labG.visible){ const camD=cam.position.distanceTo(ctl.target);
     for(const l of labs){ tmp.copy(l.sp.position); const d=tmp.distanceTo(cam.position); const lim=l.it.big?Math.max(700,camD*1.35):Math.min(camD*.9,520);
