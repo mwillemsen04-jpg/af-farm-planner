@@ -5,7 +5,7 @@ Iedereen die de site opent, ziet **dezelfde farms**, kan ze aanpassen en opslaan
 
 Bestanden:
 - `index.html` – klein startbestand: opent altijd de nieuwste planner
-- `planner-v238.html` – de planner zelf (bij een update komt er een nieuw bestand met een hoger nummer bij)
+- `planner-v239.html` – de planner zelf (bij een update komt er een nieuw bestand met een hoger nummer bij)
 - `firebase-config.js` – hier komt de sleutel van jouw Firebase-project (stap 4)
 - `firestore.rules` – de regels voor de database (stap 3)
 - `farm_Farm_1.json` – je huidige farm, om te importeren (stap 7)
@@ -37,7 +37,7 @@ Bestanden:
 
 ## Stap 5 – Op GitHub zetten (zonder git op je pc)
 1. Ga naar **github.com** → **New repository**, naam `af-farm-planner`, **Public**, klik **Create repository**.
-2. Klik **uploading an existing file** en sleep `index.html`, `planner-v238.html` en `firebase-config.js` erin. Klik **Commit changes**.
+2. Klik **uploading an existing file** en sleep `index.html`, `planner-v239.html` en `firebase-config.js` erin. Klik **Commit changes**.
 3. Ga naar **Settings → Pages**. Bij *Source*: **Deploy from a branch**, branch **main**, map **/ (root)** → **Save**.
 4. Na ongeveer een minuut staat de site op: `https://JOUWNAAM.github.io/af-farm-planner/`
 
