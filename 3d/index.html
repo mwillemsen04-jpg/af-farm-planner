@@ -97,7 +97,7 @@ const skyC=document.createElement('canvas'); skyC.width=4; skyC.height=512; { co
   g.addColorStop(0,'#0a1a2c'); g.addColorStop(.30,'#1d4766'); g.addColorStop(.47,'#6f9bb5'); g.addColorStop(.52,'#d9c7a6'); g.addColorStop(.56,'#6f8a95'); g.addColorStop(1,'#1a3240'); x.fillStyle=g; x.fillRect(0,0,4,512); }
 const sky=new THREE.CanvasTexture(skyC); sky.colorSpace=THREE.SRGBColorSpace; scene.background=new THREE.Color(0x0b1622);
 const skyDome=new THREE.Mesh(new THREE.SphereGeometry(9000,32,16),new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false,fog:false,
-  uniforms:{ uSun:{value:new THREE.Vector3(-1700,1250,-1200).normalize()} },
+  uniforms:{ uSun:{value:new THREE.Vector3(-1700,1950,-1200).normalize()} },
   vertexShader:'varying vec3 vW; void main(){ vec4 w=modelMatrix*vec4(position,1.); vW=w.xyz-cameraPosition; gl_Position=projectionMatrix*viewMatrix*w; }',
   fragmentShader:`uniform vec3 uSun; varying vec3 vW;
     void main(){ vec3 d=normalize(vW); float h=d.y; vec3 zen=vec3(.10,.25,.42), hor=vec3(.62,.72,.76), low=vec3(.30,.40,.45);
@@ -229,10 +229,10 @@ water.material.color.set(0xffffff); water.material.needsUpdate=true;
 water.rotation.x=-Math.PI/2; water.position.set(W/2,.7,H/2); water.receiveShadow=false; water.userData.noAO=true; scene.add(water);
 
 // ---------- light ----------
-scene.add(new THREE.HemisphereLight(0xcfe4ff,0x3a3a26,.62));
-const sun=new THREE.DirectionalLight(0xffe9cc,3.0); sun.position.set(W/2-1700,1250,H/2-1200); sun.target.position.set(W/2,0,H/2); scene.add(sun.target);
+scene.add(new THREE.HemisphereLight(0xcfe4ff,0x3a3a26,.78));
+const sun=new THREE.DirectionalLight(0xffe9cc,3.0); sun.position.set(W/2-1700,1950,H/2-1200); sun.target.position.set(W/2,0,H/2); scene.add(sun.target);
 sun.castShadow=true; const SM=PHONE?1024:4096; sun.shadow.mapSize.set(SM,SM); Object.assign(sun.shadow.camera,{left:-2000,right:2000,top:1700,bottom:-1700,near:200,far:5200}); sun.shadow.bias=-.0004; sun.shadow.normalBias=1.2; scene.add(sun);
-const SUND=new THREE.Vector3(-1700,1250,-1200).normalize(); let shKey='';
+const SUND=new THREE.Vector3(-1700,1950,-1200).normalize(); let shKey='';
 function fitShadow(){ const T=ctl.target, d=cam.position.distanceTo(T), ext=Math.max(110,Math.min(2100,d*1.15));
   const key=Math.round(T.x/4)+','+Math.round(T.z/4)+','+Math.round(ext/4); if(key===shKey) return; shKey=key;
   sun.target.position.set(T.x,0,T.z); sun.position.set(T.x+SUND.x*3000,SUND.y*3000,T.z+SUND.z*3000); const c=sun.shadow.camera;
@@ -588,7 +588,13 @@ function frame(){ requestAnimationFrame(frame); const now=performance.now(), dt=
   nT.offset.x+=dt*.012; nT.offset.y+=dt*.007;
   if(labG.visible){ const camD=cam.position.distanceTo(ctl.target);
     for(const l of labs){ tmp.copy(l.sp.position); const d=tmp.distanceTo(cam.position); const lim=l.it.big?Math.max(700,camD*1.35):Math.min(camD*.9,520);
-      const o=Math.max(0,Math.min(1,(lim-d)/(lim*.25))); l.sp.material.opacity=o; l.sp.visible=o>.02; const s=(l.it.big?.17:.13)*LK*Math.max(1,Math.min(1.9,d/650)); l.sp.scale.set(l.it.px*s,LH*s,1); } }
+      const o=Math.max(0,Math.min(1,(lim-d)/(lim*.25))); l.sp.material.opacity=o; l.sp.visible=o>.02; const s=(l.it.big?.17:.13)*LK*Math.max(1,Math.min(1.9,d/650)); l.sp.scale.set(l.it.px*s,LH*s,1); l.d=d; }
+    // hide names that would overlap a more important one on screen
+    const fpx=innerHeight/(2*Math.tan(cam.fov*Math.PI/360)), placed=[];
+    const order=labs.filter(l=>l.sp.visible).sort((a,b)=>(b.it.big-a.it.big)||(a.d-b.d));
+    for(const l of order){ tmp.copy(l.sp.position).project(cam); if(tmp.z>1){ l.sp.visible=false; continue; }
+      const x=(tmp.x*.5+.5)*innerWidth, y=(-tmp.y*.5+.5)*innerHeight, w=l.sp.scale.x/l.d*fpx*.9, h=l.sp.scale.y/l.d*fpx*.8;
+      const r=[x-w/2,y-h,x+w/2,y]; if(placed.some(q=>r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1])){ l.sp.visible=false; continue; } placed.push(r); } }
   if(unitG.visible){ for(const p of pins){ const d=p.sp.position.distanceTo(cam.position), s=19*PK*Math.max(1,Math.min(2.2,d/800)); p.sp.scale.set(s,s,1); } }
   if(HQ&&comp&&still){ hqUpdate(); comp.render(); hdDue=false; lastF=0; } else { R.render(scene,cam); hdDue=true; adapt(now); } window.FRAMES=(window.FRAMES||0)+1; }
 step(); frame();
