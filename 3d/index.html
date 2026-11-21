@@ -32,6 +32,8 @@ canvas{display:block;outline:none}
 #tTime{font:700 13px ui-monospace,Menlo,monospace;margin-left:auto;white-space:nowrap}
 #tRng{width:100%;accent-color:var(--brass);margin:0;height:28px;touch-action:pan-y}
 #tSpd{min-width:56px}
+#tlb .r2{display:flex;gap:8px;align-items:center}
+#tMode{min-width:62px}
 #vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 55%,#0007 100%)}
 </style></head><body>
 <div id="load"><b>Amicitia Ferox</b><div id="bar"><div></div></div><i id="lt">Building the world…</i></div>
@@ -50,7 +52,7 @@ canvas{display:block;outline:none}
 <div id="tlb" hidden>
   <div class="r1"><button id="tPlay" title="Play / pause">▶</button><button id="tPrev" title="One day back">−day</button><button id="tNext" title="One day forward">+day</button><button id="tLive" title="Follow the real clock">Live</button>
   <button id="tSpd" title="Speed (tap to change)">60×</button><span id="tTime">—</span></div>
-  <input type="range" id="tRng" min="0" max="1000" value="0" aria-label="Time">
+  <div class="r2"><button id="tMode" title="Slider covers one day / the whole game">1 day</button><input type="range" id="tRng" min="0" max="1000" value="0" step="1" aria-label="Time"></div>
 </div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js","three/addons/":"./lib/addons/"}}</script>
 <script>
@@ -608,14 +610,21 @@ if(EMBED&&parent!==window){ const send=(cmd,v)=>parent.postMessage({type:'af3d-c
   for(const [id,dir] of [['tPrev',-1],['tNext',1]]){ const b=$(id); let lastUp=0; b.addEventListener('pointerup',e=>{ lastUp=performance.now(); dayJump(dir); }); b.addEventListener('click',()=>{ if(performance.now()-lastUp>600) dayJump(dir); }); } $('tLive').onclick=()=>send('live');
   let userAt=0; const busy=()=>performance.now()-userAt<1500; const SPDS=[1,10,60,600,3600];
   $('tSpd').onclick=()=>{ userAt=performance.now(); const cur=parseInt($('tSpd').textContent)||60; const nx=SPDS[(SPDS.indexOf(cur)+1)%SPDS.length]; $('tSpd').textContent=nx+'×'; send('speed',nx); };
-  let drag=false, lastSeek=0; const seek=v=>{ userAt=performance.now(); const t=performance.now(); if(t-lastSeek>60){ lastSeek=t; send('seek',v); } };
-  for(const ev of ['pointerdown','touchstart','mousedown']) $('tRng').addEventListener(ev,()=>{ drag=true; userAt=performance.now(); },{passive:true});
-  for(const ev of ['pointerup','touchend','touchcancel','mouseup','pointercancel']) addEventListener(ev,()=>{ if(drag){ drag=false; send('seek',+$('tRng').value); userAt=performance.now(); } },{passive:true});
-  $('tRng').addEventListener('input',e=>seek(+e.target.value)); $('tRng').addEventListener('change',e=>{ userAt=performance.now(); send('seek',+e.target.value); });
+  // slider: by default it spans the current day (precise), or the whole game
+  let MODE='day', drag=false, dayBase=0, lastSend=0, TOT=0;
+  const toT=v=>MODE==='day'?dayBase+24*v/1000:TOT*v/1000;
+  const fromT=t=>MODE==='day'?Math.round(1000*(t-dayBase)/24):Math.round(1000*t/Math.max(1,TOT));
+  const push=(force)=>{ const t=Math.max(0,toT(+$('tRng').value)); tnPend=t; tnAt=performance.now(); userAt=tnAt; $('tTime').textContent=fmtT(t); const n=performance.now(); if(force||n-lastSend>50){ lastSend=n; send('set',t); } };
+  $('tMode').onclick=()=>{ MODE=MODE==='day'?'all':'day'; $('tMode').textContent=MODE==='day'?'1 day':'All'; dayBase=Math.floor(TN/24)*24; $('tRng').value=fromT(TN); };
+  const start=()=>{ if(!drag){ drag=true; dayBase=Math.floor(((tnPend!=null&&performance.now()-tnAt<2500)?tnPend:TN)/24)*24; } };
+  const end=()=>{ if(drag){ drag=false; push(true); } };
+  for(const ev of ['pointerdown','touchstart','mousedown']) $('tRng').addEventListener(ev,start,{passive:true});
+  for(const ev of ['pointerup','touchend','touchcancel','mouseup','pointercancel']) addEventListener(ev,end,{passive:true});
+  $('tRng').addEventListener('input',()=>{ start(); push(false); }); $('tRng').addEventListener('change',()=>{ push(true); drag=false; });
   for(const id of ['tlb']) $(id).addEventListener('pointerdown',e=>e.stopPropagation());
   addEventListener('message',async e=>{ if(e.origin!==location.origin||!e.data||e.data.type!=='af3d-tl') return; const d=e.data;
     if(typeof d.tnow==='number'){ TN=d.tnow; if(tnPend!=null&&(Math.abs(TN-tnPend)<.02||performance.now()-tnAt>2500)) tnPend=null; } if(!busy()) $('tTime').textContent=d.time||'—'; $('tPlay').textContent=d.play?'❚❚':'▶'; $('tLive').classList.toggle('on',!!d.live); $('tLive').disabled=!d.canLive;
-    if(!busy()) $('tSpd').textContent=d.speed+'×'; if(!drag&&!busy()) $('tRng').value=d.range;
+    if(!busy()) $('tSpd').textContent=d.speed+'×'; if(typeof d.total==='number') TOT=d.total; if(!drag&&!busy()){ const t=(tnPend!=null)?tnPend:TN; if(MODE==='day') dayBase=Math.floor(t/24)*24; $('tRng').value=fromT(t); }
     if(d.ni&&d.ni.length){ for(const src of d.ni) icons.push(src?await img(src).catch(()=>null):null); }
     if(d.units) syncPins(d.units); mark(); });
   send('hello'); } clearTimeout(window.__boot); window.__cam=(p,t)=>{ cam.position.set(...p); ctl.target.set(...t); ctl.update(); dirty=3; };
