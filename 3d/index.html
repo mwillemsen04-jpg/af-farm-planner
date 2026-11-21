@@ -190,7 +190,13 @@ const nC=document.createElement('canvas'); nC.width=nC.height=256; { const x=nC.
   for(let y=0;y<256;y++) for(let i=0;i<256;i++){ const a=hs[y*256+i], dx=hs[y*256+((i+1)&255)]-a, dy=hs[((y+1)&255)*256+i]-a; const o=(y*256+i)*4; id.data[o]=128+dx*60; id.data[o+1]=128+dy*60; id.data[o+2]=255; id.data[o+3]=255; }
   x.putImageData(id,0,0); }
 const nT=new THREE.CanvasTexture(nC); nT.wrapS=nT.wrapT=THREE.RepeatWrapping; nT.repeat.set(26,17);
-const water=new THREE.Mesh(new THREE.PlaneGeometry(W,H), new THREE.MeshPhysicalMaterial({color:0x0b3a55,transparent:true,opacity:.26,roughness:.07,metalness:0,normalMap:nT,normalScale:new THREE.Vector2(.42,.42),clearcoat:.7,clearcoatRoughness:.12,specularIntensity:.7}));
+const foamA=document.createElement('canvas'), foamE=document.createElement('canvas'); foamA.width=foamE.width=HW; foamA.height=foamE.height=HH;
+{ const a=foamA.getContext('2d').createImageData(HW,HH), e=foamE.getContext('2d').createImageData(HW,HH); let rs=7; const rn=()=>((rs=(rs*16807)%2147483647)/2147483647);
+  for(let y=0;y<HH;y++) for(let x=0;x<HW;x++){ const i=y*HW+x; let f=0; if(HF[i]<=0){ let d=9; for(let oy=-3;oy<=3;oy++) for(let ox=-3;ox<=3;ox++){ const X=x+ox, Y=y+oy; if(X<0||Y<0||X>=HW||Y>=HH) continue; if(HF[Y*HW+X]>0){ const dd=Math.hypot(ox,oy); if(dd<d) d=dd; } } if(d<9) f=Math.max(0,1-(d-.5)/2.8)*(.55+.45*rn()); }
+    const A=Math.round(255*Math.min(1,.30+f*.6)), E=Math.round(255*f*.75); a.data[i*4]=a.data[i*4+1]=a.data[i*4+2]=A; a.data[i*4+3]=255; e.data[i*4]=e.data[i*4+1]=e.data[i*4+2]=E; e.data[i*4+3]=255; }
+  foamA.getContext('2d').putImageData(a,0,0); foamE.getContext('2d').putImageData(e,0,0); }
+const foamAT=new THREE.CanvasTexture(foamA), foamET=new THREE.CanvasTexture(foamE);
+const water=new THREE.Mesh(new THREE.PlaneGeometry(W,H), new THREE.MeshPhysicalMaterial({color:0x0b3a55,transparent:true,opacity:1,alphaMap:foamAT,emissive:0xdfeef2,emissiveMap:foamET,emissiveIntensity:.55,roughness:.07,metalness:0,normalMap:nT,normalScale:new THREE.Vector2(.42,.42),clearcoat:.7,clearcoatRoughness:.12,specularIntensity:.7}));
 water.rotation.x=-Math.PI/2; water.position.set(W/2,.7,H/2); water.receiveShadow=true; water.userData.noAO=true; scene.add(water);
 
 // ---------- light ----------
@@ -366,13 +372,24 @@ const cityG=new THREE.Group(); scene.add(cityG);
 const towns=labels.filter(L=>L.t===14&&hRaw(L.x,L.y)>.003).map(L=>({x:L.x,y:L.y,big:L.t===14,r:L.t===14?12:5}));
 const nearTown=(x,y)=>{ for(const q of LMS){ if((x-q.x)**2+(y-q.y)**2<(q.r+2.5)**2) return true; } for(const t of towns){ const dx=x-t.x, dy=y-t.y; if(dx*dx+dy*dy<(t.r+3)*(t.r+3)) return true; } return false; };
 const treeG=new THREE.Group(); scene.add(treeG);
-const NT=PHONE?22000:110000; let rs=12345; const rnd=()=>((rs=(rs*16807)%2147483647)/2147483647);
+const NT=PHONE?20000:90000; let rs=12345; const rnd=()=>((rs=(rs*16807)%2147483647)/2147483647);
 const spots=[];
 for(let a=0;a<NT*14&&spots.length<NT;a++){ const x=rnd()*W, y=rnd()*H; const f=mAt(x,y,0); if(f<.08||rnd()>Math.pow(f,1.15)) continue;
   if(mAt(x,y,1)>.35||mAt(x,y,2)>.15||hRaw(x,y)<.004||nearTown(x,y)) continue; spots.push([x,y,rnd(),rnd(),rnd()]); }
-const conG=new THREE.ConeGeometry(1,1,6,1); conG.translate(0,.5,0);
-const decG=new THREE.IcosahedronGeometry(1,1); decG.scale(1,.85,1); decG.translate(0,1.05,0);
-const tMat=new THREE.MeshStandardMaterial({roughness:.95,metalness:0,flatShading:true});
+const vcol=(g,r,gg,b)=>{ g=g.index?g.toNonIndexed():g; for(const k of Object.keys(g.attributes)) if(k!=='position'&&k!=='normal') g.deleteAttribute(k); const n=g.attributes.position.count, c=new Float32Array(n*3); for(let i=0;i<n;i++){ c[i*3]=r; c[i*3+1]=gg; c[i*3+2]=b; } g.setAttribute('color',new THREE.BufferAttribute(c,3)); return g; };
+const TRK=[.55,.42,.32];
+const conG=mergeGeometries([
+  vcol(new THREE.CylinderGeometry(.07,.09,.22,5,1,true).translate(0,.11,0),...TRK),
+  vcol(new THREE.ConeGeometry(.5,.46,7,1,true).translate(0,.39,0),.92,.95,.92),
+  vcol(new THREE.ConeGeometry(.39,.40,7,1,true).translate(0,.62,0),1,1,1),
+  vcol(new THREE.ConeGeometry(.26,.34,7,1,true).translate(0,.83,0),1.08,1.08,1.05)]);
+const decG=mergeGeometries([
+  vcol(new THREE.CylinderGeometry(.11,.15,.75,5,1,true).translate(0,.37,0),...TRK),
+  vcol(new THREE.IcosahedronGeometry(.78,0).scale(1,.85,1).translate(0,1.12,0),1,1,1),
+  vcol(new THREE.IcosahedronGeometry(.55,0).translate(.48,.98,.18),.9,.94,.88),
+  vcol(new THREE.IcosahedronGeometry(.58,0).translate(-.4,1.02,-.28),.95,.97,.9),
+  vcol(new THREE.IcosahedronGeometry(.46,0).translate(.08,1.55,.06),1.1,1.1,1.02)]);
+const tMat=new THREE.MeshStandardMaterial({roughness:.95,metalness:0,flatShading:true,vertexColors:true});
 tMat.onBeforeCompile=sh=>{ sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying float vLy;').replace('#include <begin_vertex>','#include <begin_vertex>\nvLy=position.y;');
   sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying float vLy;').replace('#include <color_fragment>','#include <color_fragment>\n diffuseColor.rgb*=mix(.48,1.18,smoothstep(.0,1.15,vLy));'); };
 const nCon=spots.filter(s=>s[2]<.55).length;
@@ -381,7 +398,7 @@ for(const m of [conI,decI]){ m.castShadow=!PHONE; m.receiveShadow=true; m.frustu
 const tc=new THREE.Color(), dm=new THREE.Object3D();
 function placeTrees(){ let ci=0, di=0;
   for(const [x,y,k,v,r] of spots){ const g=hAt(x,y); const con=k<.55;
-    const sc=.75+v*.6; if(con){ dm.position.set(x,g-.3,y); dm.scale.set(1.0*sc,3.7*sc,1.0*sc); } else { dm.position.set(x,g-.3,y); dm.scale.set(1.3*sc,1.3*sc,1.3*sc); }
+    const sc=.75+v*.6; if(con){ dm.position.set(x,g-.3,y); dm.scale.set(1.9*sc,3.6*sc,1.9*sc); } else { dm.position.set(x,g-.3,y); dm.scale.set(1.3*sc,1.3*sc,1.3*sc); }
     dm.rotation.set(0,r*6.28,0); dm.updateMatrix();
     if(con){ conI.setMatrixAt(ci,dm.matrix); tc.setHSL(.30+r*.04,.42+v*.12,.15+v*.06); conI.setColorAt(ci++,tc); }
     else { decI.setMatrixAt(di,dm.matrix); tc.setHSL(.24+r*.06,.40+v*.15,.20+v*.08); decI.setColorAt(di++,tc); } }
@@ -407,7 +424,8 @@ const CITY={house:[],block:[],church:[],road:[],lot:[],fac:[],dome:[]}; { let rs
       if(t.big&&d>.62&&r2()<.2){ CITY.fac.push({x:bx,y:by,a:a+turn,w:cell*.86,d:cell*.58,h:1.1+r2()*.5,c:r2(),ch:r2()<.75,chh:3.5+r2()*3}); }
       else if(t.big&&core>.3){ const tall=false; const h=1.9+core*1.9*(.6+r2()*.5);
         if(tall) CITY.block.push({x:bx,y:by,a,w:cell*(.62+r2()*.12),d:cell*(.62+r2()*.12),h,c:r2(),tall});
-        else for(let k=0;k<2;k++){ const off=(k-.5)*cell*.45; const [qx,qy]=W2(u+(turn?0:off),v+(turn?off:0)); CITY.block.push({x:qx,y:qy,a:a+turn,w:cell*(turn?.84:.42),d:cell*(turn?.42:.84),h:h*(.85+r2()*.3),c:r2(),tall:false}); } }
+        else { const th=cell*.27, L=cell*.86, o=(L-th)/2, cc=r2();
+          for(const [du,dv,w,dd] of [[0,-o,L,th],[0,o,L,th],[-o,0,th,L-2*th],[o,0,th,L-2*th]]){ const [qx,qy]=W2(u+du,v+dv); CITY.block.push({x:qx,y:qy,a,w,d:dd,h:h*(.9+r2()*.2),c:(cc+r2()*.25)%1,tall:false}); } } }
       else { const two=t.big||r2()<.35; // a row of 1-2 houses per lot
         for(let k=0;k<(two?2:1);k++){ const off=two?(k-.5)*cell*.46:0; const [hx,hy]=W2(u+jx+(turn?0:off),v+jy+(turn?off:0));
           CITY.house.push({x:hx,y:hy,a:a+turn,w:cell*(two?.40:.62)*(.9+r2()*.2),d:cell*(.55+r2()*.2),h:.8+r2()*.5,c:r2(),rc:r2()}); } }
@@ -432,7 +450,7 @@ const mkI=(g,m,n,sh=true)=>{ const I=new THREE.InstancedMesh(g,m,Math.max(1,n));
 const byCls=HCL.map(()=>[]); for(const b of CITY.block){ let k=0; while(k<HCL.length-1&&b.h>(HCL[k]+HCL[k+1])/2) k++; byCls[k].push(b); }
 const blockI=HCL.map((h,k)=>mkI(facadeBox(Math.max(1,Math.round(h/FLOOR))),facM,byCls[k].length));
 const flatRoofI=mkI(gableG,roofM,CITY.block.length);
-const houseI=mkI(boxG,wallM,CITY.house.length), gableI=mkI(gableG,roofM,CITY.house.length);
+const houseI=mkI(facadeBox(1),facM,CITY.house.length), chimHI=mkI(boxG,roofM,CITY.house.length), gableI=mkI(gableG,roofM,CITY.house.length);
 const nCh=CITY.church.length; const naveI=mkI(boxG,wallM,nCh), naveRoofI=mkI(gableG,roofM,nCh), towerI=mkI(boxG,wallM,nCh), spI=mkI(spireG,roofM,nCh);
 const facI=mkI(boxG,wallM,CITY.fac.length), sawI=mkI(gableG,roofM,CITY.fac.length*3);
 const chimG=new THREE.CylinderGeometry(.22,.32,1,10); chimG.translate(0,.5,0); const nChm=CITY.fac.filter(f=>f.ch).length; const chimI=mkI(chimG,wallM,nChm);
@@ -446,7 +464,8 @@ function placeCity(){
   let fi=0; HCL.forEach((hc,k)=>byCls[k].forEach(b=>{ const g=b.top-b.h; const sl=(b.c*7)%1<.55; tc.setHSL(sl?.6:.025, sl?.10:.55, sl?.30+b.c*.06:.34+b.c*.08); const ridge=b.w>b.d; setI(flatRoofI,fi++,b.x,g+b.h,b.y,b.a+(ridge?Math.PI/2:0),ridge?b.d*1.04:b.w*1.04,.75,ridge?b.w*1.04:b.d*1.04,tc); }));
   CITY.house.forEach((h,i)=>{ const [lo,hi]=gr(h.x,h.y,Math.max(h.w,h.d)*.55), g=hi; tc.setHSL(.10+h.c*.05,.25+h.c*.25,.78+h.c*.12); setI(houseI,i,h.x,lo-.3,h.y,h.a,h.w,h.h+hi-lo+.3,h.d,tc);
     const north=h.y<H*.38; tc.setHSL(north&&h.rc<.5?.6:.02+h.rc*.035, north&&h.rc<.5?.08:.62, north&&h.rc<.5?.28:.36+h.rc*.1);
-    setI(gableI,i,h.x,g+h.h,h.y,h.a,h.w*1.12,.55+h.w*.35,h.d*1.08,tc); });
+    setI(gableI,i,h.x,g+h.h,h.y,h.a,h.w*1.12,.55+h.w*.35,h.d*1.08,tc);
+    const ca=Math.cos(h.a), sa=Math.sin(h.a), o=h.d*.22; tc.setHSL(.03,.35,.32); setI(chimHI,i,h.x-sa*o+ca*h.w*.25,g+h.h+.1,h.y+ca*o+sa*h.w*.25,h.a,.16,.62+h.w*.2,.16,tc); });
   CITY.church.forEach((c,i)=>{ const [lo,hi]=gr(c.x,c.y,2.2*c.s), g=hi-.05, s=c.s, ca=Math.cos(c.a), sa=Math.sin(c.a);
     tc.setHSL(.11,.22,.82); setI(naveI,i,c.x,lo-.3,c.y,c.a,1.2*s,1.5*s+g-lo+.3,2.8*s,tc); setI(naveRoofI,i,c.x,g+1.5*s,c.y,c.a,1.3*s,1.0*s,2.85*s,tc.setHSL(.03,.45,.33));
     const tx=c.x-sa*1.6*s, ty=c.y+ca*1.6*s; tc.setHSL(.11,.2,.80); setI(towerI,i,tx,lo-.3,ty,c.a,.8*s,3.6*s+g-lo+.3,.8*s,tc); setI(spI,i,tx,g+3.6*s,ty,c.a,.95*s,2.6*s,.95*s,tc.setHSL(.47,.25,.36)); });
@@ -510,7 +529,7 @@ $('bTop').onclick=()=>{ const t=ctl.target.clone(); const d=cam.position.distanc
 // ---------- high graphics: ambient occlusion, soft bloom, grading, tilt-shift depth of field ----------
 const GRADE={ uniforms:{ tDiffuse:{value:null}, res:{value:new THREE.Vector2(1,1)}, tilt:{value:0} }, vertexShader:'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
   fragmentShader:`uniform sampler2D tDiffuse; uniform vec2 res; uniform float tilt; varying vec2 vUv;
-  void main(){ vec4 c=texture2D(tDiffuse,vUv); float b=tilt*smoothstep(.16,.52,abs(vUv.y-.46))*3.2;
+  void main(){ vec4 c=texture2D(tDiffuse,vUv); float b=tilt*smoothstep(.2,.56,abs(vUv.y-.46))*2.0;
     if(b>.05){ vec3 a=c.rgb; float n=1.; for(int i=0;i<12;i++){ float an=float(i)*2.39996; float r=sqrt(float(i)+.5)/3.6; vec2 o=vec2(cos(an),sin(an))*r*b/res; a+=texture2D(tDiffuse,vUv+o).rgb; n+=1.; } c.rgb=a/n; }
     float l=dot(c.rgb,vec3(.2126,.7152,.0722)); c.rgb=mix(vec3(l),c.rgb,1.12); c.rgb=pow(max(c.rgb,0.),vec3(1.04));
     vec2 q=vUv-.5; c.rgb*=1.-dot(q,q)*.55; gl_FragColor=c; }` };
