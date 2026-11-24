@@ -168,6 +168,7 @@ const maskT=mkT(mImg,false); const detT=mkT(dImg,false); detT.wrapS=detT.wrapT=T
 const cloudC=document.createElement('canvas'); cloudC.width=512; cloudC.height=331; { const x=cloudC.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,512,331); let r=99; const rn=()=>((r=(r*16807)%2147483647)/2147483647);
   for(let i=0;i<70;i++){ const cx=rn()*512, cy=rn()*331, rr=8+rn()*26; const g=x.createRadialGradient(cx,cy,0,cx,cy,rr); g.addColorStop(0,'rgba(0,0,0,.22)'); g.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=g; for(let k=0;k<4;k++){ x.beginPath(); x.arc(cx+(rn()-.5)*rr,cy+(rn()-.5)*rr*.6,rr*(.6+rn()*.5),0,7); x.fill(); } } }
 const cloudT=new THREE.CanvasTexture(cloudC);
+if(EMBED) addEventListener('message',async e=>{ if(e.origin!==location.origin||!e.data||e.data.type!=='af3d-ov'||!e.data.over) return; const u=URL.createObjectURL(e.data.over); try{ const im=await img(u); ovT.image=im; ovT.needsUpdate=true; try{ dirty=3; hdDue=true; }catch(_){} }catch(_){} try{ URL.revokeObjectURL(u); }catch(_){} });
 const uni={ uCloud:{value:cloudT}, uCity:{value:new THREE.DataTexture(new Uint8Array(4),1,1)}, uTop:{value:HMAX}, uOver:{value:ovT}, uOvA:{value:.9}, uMask:{value:maskT}, uDet:{value:detT}, uRep:{value:new THREE.Vector2(W/42,H/42)} };
 const landMat=new THREE.MeshStandardMaterial({map:tex,roughness:.96,metalness:0});
 const nrmT=new THREE.Texture(nImg); nrmT.anisotropy=tex.anisotropy; nrmT.needsUpdate=true; landMat.normalMap=nrmT; landMat.normalMapType=THREE.ObjectSpaceNormalMap;
